@@ -1,0 +1,8 @@
+{
+  "id": "user-profile-gather",
+  "name": "User Profile Gather",
+  "handler": "app.infrastructure.profile_tools:gather_profile_context",
+  "context_keys": ["user_id", "course_id"],
+  "expose_to_main": true,
+  "params": {}
+}

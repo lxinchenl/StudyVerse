@@ -1,0 +1,25 @@
+.venv/
+__pycache__/
+*.pyc
+.env
+.env.local
+data/settings/llm.json
+node_modules/
+.next/
+dist/
+build/
+*.sqlite3
+*.db
+.pytest_cache/
+.mypy_cache/
+
+# User-private runtime data
+data/users/
+data/resources/
+data/generated_resources/
+
+# IDE / OS artifacts
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/

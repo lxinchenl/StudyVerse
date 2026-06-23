@@ -1,0 +1,12 @@
+{
+  "id": "note-material-extract",
+  "name": "Note Material Extract",
+  "expose_to_main": false,
+  "handler": "app.tools.handlers.note_tools:note_material_extract",
+  "context_keys": ["course_id"],
+  "params": {
+    "course_id": "课程 id（由上下文注入）",
+    "material_id": "单个课件 id（与 chapter_key 二选一）",
+    "chapter_key": "章节键，如 ch1、ch2（与 material_id 二选一）"
+  }
+}

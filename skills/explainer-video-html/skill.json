@@ -1,0 +1,22 @@
+{
+  "id": "explainer-video-html",
+  "name": "Explainer Video HTML",
+  "version": "1",
+  "agent": "video-agent",
+  "delivery": "html+audio",
+  "demo": "demo/2nf-animation.html",
+  "docs": {
+    "skill": "SKILL.md",
+    "visual_spec": "visual-spec.md",
+    "reference": "reference.md"
+  },
+  "pipeline": [
+    "parse_storyboard",
+    "render_explainer_html",
+    "generate_scene_audio",
+    "register_explainer_video"
+  ],
+  "requirements": {
+    "subtitles": "每镜 scene.subtitle 必填，HTML 底部 .subtitle-bar 展示，与配音同步高亮"
+  }
+}

@@ -1,0 +1,9 @@
+{
+  "id": "course-catalog-list",
+  "name": "Course Catalog List",
+  "handler": "app.infrastructure.course_documents:list_course_catalog",
+  "context_keys": ["course_id"],
+  "params": {
+    "course_id": "课程 id（由上下文注入）"
+  }
+}

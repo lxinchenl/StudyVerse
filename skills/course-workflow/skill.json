@@ -1,0 +1,17 @@
+{
+  "id": "course-workflow",
+  "name": "Course Workflow",
+  "version": "1",
+  "agent": "course-workflow-agent",
+  "delivery": "learning_path",
+  "docs": {
+    "skill": "SKILL.md"
+  },
+  "pipeline": [
+    "propose_confirm",
+    "plan_course",
+    "module_react_orchestrate",
+    "dispatch_expert_by_order",
+    "save_learning_path"
+  ]
+}

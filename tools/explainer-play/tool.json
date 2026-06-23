@@ -1,0 +1,8 @@
+{
+  "id": "explainer-play",
+  "name": "讲解视频静态播放",
+  "handler": "app.tools.handlers.explainer:register_explainer_video",
+  "context_keys": ["resource_service"],
+  "route": "/api/explainer/play/{play_token}/{file_path}",
+  "used_by": ["video-agent"]
+}

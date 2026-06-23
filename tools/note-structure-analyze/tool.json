@@ -1,0 +1,9 @@
+{
+  "id": "note-structure-analyze",
+  "name": "Note Structure Analyze",
+  "expose_to_main": false,
+  "handler": "app.tools.handlers.note_tools:note_structure_analyze",
+  "params": {
+    "pages": "note-material-extract 返回的 pages 数组"
+  }
+}

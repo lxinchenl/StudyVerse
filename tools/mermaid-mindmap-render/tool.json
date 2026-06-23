@@ -1,0 +1,10 @@
+{
+  "id": "mermaid-mindmap-render",
+  "name": "Mermaid Mindmap Render",
+  "expose_to_main": false,
+  "handler": "app.infrastructure.mindmap.renderer:normalize_mindmap",
+  "params": {
+    "source": "Mermaid mindmap 源码",
+    "root_label": "可选根节点标题"
+  }
+}

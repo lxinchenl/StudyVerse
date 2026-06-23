@@ -1,0 +1,14 @@
+{
+  "id": "user-me-update",
+  "name": "User Me Update",
+  "handler": "app.infrastructure.me_tools:update_user_me",
+  "context_keys": ["user_id"],
+  "expose_to_main": true,
+  "params": {
+    "action": "add|merge|delete|remove|rewrite|replace",
+    "updates": "对象：要新增/覆盖到 me.json 的键值",
+    "remove_keys": "字符串数组：要删除的键",
+    "rewrite": "对象：用于整份重写 me.json（仅 rewrite/replace 时使用）"
+  }
+}
+

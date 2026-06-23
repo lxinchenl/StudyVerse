@@ -1,0 +1,7 @@
+{
+  "id": "edge-tts-narration",
+  "name": "Edge TTS 场景配音",
+  "handler": "app.infrastructure.tts.narration:generate_scene_audio",
+  "used_by": ["video-agent", "explainer-video-html"],
+  "requires": ["edge-tts"]
+}

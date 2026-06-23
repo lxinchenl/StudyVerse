@@ -1,0 +1,4 @@
+edge-tts>=6.1.0
+
+# 可选：官方 Azure Speech SDK（需 AZURE_SPEECH_KEY / AZURE_SPEECH_REGION）
+# azure-cognitiveservices-speech>=1.40.0

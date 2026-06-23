@@ -1,0 +1,11 @@
+{
+  "id": "course-workflow-propose",
+  "name": "Course Workflow Propose",
+  "handler": "app.tools.handlers.course_workflow_tools:course_workflow_propose",
+  "expose_to_main": true,
+  "context_keys": ["user_id", "course_id"],
+  "params": {
+    "topic": "用户想系统学习的主题（必填）",
+    "course_id": "课程库 id，默认 db-principles"
+  }
+}

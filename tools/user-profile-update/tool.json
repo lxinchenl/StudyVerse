@@ -1,0 +1,14 @@
+{
+  "id": "user-profile-update",
+  "name": "User Profile Update",
+  "handler": "app.infrastructure.profile_tools:update_user_profile",
+  "context_keys": ["user_id"],
+  "expose_to_main": true,
+  "params": {
+    "course": "当前学习的课程名称（可选）",
+    "goal": "学习目标，如期末备考、掌握范式（可选）",
+    "recent_topics": "近期学习/讨论的主题，字符串数组（可选）",
+    "weak_points": "薄弱知识点，字符串数组（可选）",
+    "list_mode": "merge（默认，与已有合并去重）或 replace（整表替换 recent_topics/weak_points）"
+  }
+}

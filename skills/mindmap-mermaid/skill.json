@@ -1,0 +1,16 @@
+{
+  "id": "mindmap-mermaid",
+  "name": "Mindmap Mermaid",
+  "version": "1",
+  "agent": "mindmap-agent",
+  "delivery": "mermaid",
+  "docs": {
+    "skill": "SKILL.md"
+  },
+  "pipeline": [
+    "build_prompt",
+    "llm_mindmap_json",
+    "mermaid_mindmap_render",
+    "register_mindmap"
+  ]
+}

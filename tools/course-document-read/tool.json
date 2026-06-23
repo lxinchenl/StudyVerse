@@ -1,0 +1,12 @@
+{
+  "id": "course-document-read",
+  "name": "Course Document Read",
+  "handler": "app.infrastructure.course_documents:read_course_documents",
+  "context_keys": ["course_id"],
+  "params": {
+    "course_id": "课程 id（由上下文注入）",
+    "material_id": "单个文件 id（与 chapter_key 二选一）",
+    "chapter_key": "章节键，如 ch1、ch2（与 material_id 二选一）",
+    "max_chars_per_doc": "每个文件最多返回字符数，默认 6000"
+  }
+}

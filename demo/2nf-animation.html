@@ -1,0 +1,1405 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>第二范式 2NF · 讲解动画</title>
+  <style>
+    :root {
+      --bg1: #eef6ff;
+      --bg2: #f8fbff;
+      --blue: #2563eb;
+      --blue-light: #dbeafe;
+      --text: #0f172a;
+      --muted: #64748b;
+      --warn: #ef4444;
+      --warn-bg: #fee2e2;
+      --ok: #16a34a;
+      --ok-bg: #dcfce7;
+      --card: #ffffff;
+      --shadow: 0 18px 50px rgba(37, 99, 235, 0.12);
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    html, body {
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
+      font-family: "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+      background: #0b1220;
+      color: var(--text);
+    }
+
+    #app {
+      width: 100vw;
+      height: 100vh;
+      display: flex;
+      flex-direction: column;
+      background: linear-gradient(135deg, #dbeafe 0%, #eff6ff 45%, #f8fafc 100%);
+    }
+
+    #app:fullscreen,
+    #app:-webkit-full-screen {
+      background: linear-gradient(180deg, var(--bg1), var(--bg2));
+    }
+
+    .setup-overlay {
+      position: fixed;
+      inset: 0;
+      z-index: 100;
+      display: grid;
+      place-items: center;
+      background: rgba(11, 18, 32, 0.72);
+      backdrop-filter: blur(8px);
+      padding: 24px;
+    }
+
+    .setup-overlay.hidden { display: none; }
+
+    .setup-card {
+      width: min(480px, 100%);
+      background: #fff;
+      border-radius: 20px;
+      padding: 28px;
+      box-shadow: var(--shadow);
+    }
+
+    .setup-card h2 {
+      font-size: 1.2rem;
+      color: var(--blue);
+      margin-bottom: 8px;
+    }
+
+    .setup-card p {
+      font-size: 0.88rem;
+      color: var(--muted);
+      line-height: 1.6;
+      margin-bottom: 18px;
+    }
+
+    .field {
+      margin-bottom: 14px;
+    }
+
+    .field label {
+      display: block;
+      font-size: 0.82rem;
+      color: var(--muted);
+      margin-bottom: 6px;
+    }
+
+    .field input, .field select {
+      width: 100%;
+      padding: 10px 12px;
+      border: 1px solid #e2e8f0;
+      border-radius: 10px;
+      font-size: 0.92rem;
+    }
+
+    .setup-actions {
+      display: flex;
+      gap: 10px;
+      margin-top: 18px;
+    }
+
+    .status-pill {
+      margin-top: 12px;
+      font-size: 0.82rem;
+      color: var(--muted);
+      min-height: 1.2em;
+    }
+
+    .status-pill.error { color: #b91c1c; }
+    .status-pill.ok { color: #15803d; }
+
+    .cmd-block {
+      background: #0f172a;
+      color: #e2e8f0;
+      padding: 14px 16px;
+      border-radius: 12px;
+      font-size: 0.78rem;
+      line-height: 1.55;
+      overflow-x: auto;
+      margin-bottom: 16px;
+      white-space: pre-wrap;
+    }
+
+    .cmd-block code { color: #7dd3fc; }
+
+    .presentation {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      min-height: 0;
+    }
+
+    .top-bar {
+      flex-shrink: 0;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 10px 18px;
+      background: rgba(255, 255, 255, 0.72);
+      border-bottom: 1px solid rgba(37, 99, 235, 0.1);
+    }
+
+    .top-bar h1 {
+      font-size: 0.95rem;
+      color: var(--blue);
+      font-weight: 700;
+    }
+
+    .top-bar-right {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .voice-badge {
+      font-size: 0.78rem;
+      color: var(--muted);
+      padding: 4px 10px;
+      background: var(--blue-light);
+      border-radius: 999px;
+    }
+
+    .stage-wrap {
+      flex: 1;
+      min-height: 0;
+      display: flex;
+      flex-direction: column;
+      padding: 12px 18px 0;
+    }
+
+    .stage {
+      position: relative;
+      flex: 1;
+      min-height: 0;
+      width: 100%;
+      background: linear-gradient(180deg, var(--bg1), var(--bg2));
+      border-radius: 16px;
+      overflow: hidden;
+      box-shadow: var(--shadow);
+      border: 1px solid rgba(37, 99, 235, 0.12);
+    }
+
+    #app:fullscreen .stage,
+    #app:-webkit-full-screen .stage {
+      border-radius: 0;
+      border: none;
+      box-shadow: none;
+    }
+
+    #app:fullscreen .stage-wrap,
+    #app:-webkit-full-screen .stage-wrap {
+      padding: 0;
+    }
+
+    #app:fullscreen .top-bar,
+    #app:-webkit-full-screen .top-bar {
+      background: rgba(15, 23, 42, 0.55);
+      border-bottom-color: rgba(255, 255, 255, 0.08);
+    }
+
+    #app:fullscreen .top-bar h1,
+    #app:-webkit-full-screen .top-bar h1,
+    #app:fullscreen .voice-badge,
+    #app:-webkit-full-screen .voice-badge {
+      color: #e2e8f0;
+    }
+
+    #app:fullscreen .controls,
+    #app:-webkit-full-screen .controls {
+      background: rgba(15, 23, 42, 0.72);
+      border-top: 1px solid rgba(255, 255, 255, 0.08);
+    }
+
+    #app:fullscreen .scene-label,
+    #app:-webkit-full-screen .scene-label {
+      color: #cbd5e1;
+    }
+
+    .scene {
+      position: absolute;
+      inset: 0;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: clamp(16px, 2.5vw, 32px) clamp(20px, 3vw, 48px) 92px;
+      opacity: 0;
+      transform: scale(0.98);
+      pointer-events: none;
+      transition: opacity 0.6s ease, transform 0.6s ease;
+    }
+
+    .scene-content {
+      position: relative;
+      width: min(1080px, 96%);
+      max-height: calc(100% - 8px);
+      overflow: auto;
+    }
+
+    #app:fullscreen .scene-content,
+    #app:-webkit-full-screen .scene-content {
+      width: min(1200px, 92%);
+    }
+
+    .scene.active {
+      opacity: 1;
+      transform: scale(1);
+      pointer-events: auto;
+    }
+
+    .subtitle-bar {
+      position: absolute;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      padding: 16px 28px;
+      background: rgba(15, 23, 42, 0.88);
+      color: #fff;
+      font-size: clamp(0.95rem, 1.6vw, 1.15rem);
+      line-height: 1.55;
+      min-height: 64px;
+      display: flex;
+      align-items: center;
+    }
+
+    .subtitle-bar.speaking {
+      box-shadow: inset 0 3px 0 #38bdf8;
+    }
+
+    .controls {
+      flex-shrink: 0;
+      margin-top: 12px;
+      padding: 12px 18px 16px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      flex-wrap: wrap;
+    }
+
+    .controls-left, .controls-right {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    button {
+      border: none;
+      background: var(--card);
+      color: var(--text);
+      padding: 10px 16px;
+      border-radius: 10px;
+      cursor: pointer;
+      font-size: 0.9rem;
+      box-shadow: 0 4px 14px rgba(15, 23, 42, 0.08);
+      transition: transform 0.15s ease, background 0.15s ease;
+    }
+
+    button:hover { transform: translateY(-1px); background: #f8fafc; }
+    button.primary { background: var(--blue); color: #fff; }
+    button.primary:hover { background: #1d4ed8; }
+    button.ghost { background: transparent; box-shadow: none; color: var(--muted); }
+
+    .dots { display: flex; gap: 8px; align-items: center; }
+
+    .dot {
+      width: 10px;
+      height: 10px;
+      border-radius: 999px;
+      background: #cbd5e1;
+      cursor: pointer;
+      transition: all 0.25s ease;
+    }
+
+    .dot.active { width: 28px; background: var(--blue); }
+
+    .scene-label { font-size: 0.8rem; color: var(--muted); }
+
+    .title-card { text-align: center; animation: fadeUp 0.8s ease both; }
+    .title-card h2 {
+      font-size: clamp(2rem, 5vw, 3.2rem);
+      color: var(--blue);
+      letter-spacing: 0.02em;
+    }
+    .title-card .tag {
+      margin-top: 18px;
+      display: inline-block;
+      padding: 8px 18px;
+      border-radius: 999px;
+      background: var(--blue-light);
+      color: var(--blue);
+      font-weight: 600;
+      animation: fadeUp 0.8s 0.25s ease both;
+    }
+
+    .table-box {
+      background: var(--card);
+      border-radius: 18px;
+      padding: clamp(20px, 2.5vw, 28px) clamp(22px, 3vw, 32px);
+      box-shadow: 0 10px 30px rgba(15, 23, 42, 0.08);
+      animation: fadeUp 0.7s ease both;
+      width: 100%;
+    }
+
+    .table-title {
+      font-size: clamp(1.05rem, 2vw, 1.35rem);
+      font-weight: 700;
+      margin-bottom: 16px;
+      color: var(--blue);
+    }
+
+    table.data-table {
+      border-collapse: collapse;
+      width: 100%;
+      font-size: clamp(1rem, 1.8vw, 1.28rem);
+    }
+
+    table.data-table th,
+    table.data-table td {
+      border: 1px solid #e2e8f0;
+      padding: clamp(12px, 1.6vw, 18px) clamp(10px, 1.4vw, 16px);
+      text-align: center;
+    }
+
+    table.data-table th {
+      background: var(--blue-light);
+      color: var(--blue);
+      font-weight: 700;
+    }
+
+    #app:fullscreen table.data-table,
+    #app:-webkit-full-screen table.data-table {
+      font-size: clamp(1.1rem, 2vmin, 1.4rem);
+    }
+
+    #app:fullscreen table.data-table th,
+    #app:fullscreen table.data-table td,
+    #app:-webkit-full-screen table.data-table th,
+    #app:-webkit-full-screen table.data-table td {
+      padding: 18px 20px;
+    }
+
+    tr.data-row {
+      opacity: 0;
+      transform: translateY(8px);
+      animation: rowIn 0.45s ease forwards;
+    }
+
+    tr.data-row:nth-child(2) { animation-delay: 0.15s; }
+    tr.data-row:nth-child(3) { animation-delay: 0.3s; }
+    tr.data-row:nth-child(4) { animation-delay: 0.45s; }
+
+    .highlight-col {
+      background: var(--warn-bg) !important;
+      color: #b91c1c;
+      animation: pulseCol 1.2s ease-in-out infinite;
+    }
+
+    .pk-col {
+      background: #fef9c3 !important;
+      color: #854d0e;
+      box-shadow: inset 0 0 0 2px #facc15;
+    }
+
+    .pk-col th,
+    th.pk-col {
+      background: #fef08a !important;
+      color: #854d0e;
+    }
+
+    .highlight-partial {
+      background: #ffedd5 !important;
+      color: #c2410c;
+      animation: pulseCol 1.2s ease-in-out infinite;
+    }
+
+    .highlight-ok {
+      background: var(--ok-bg) !important;
+      color: #15803d;
+    }
+
+    .col-tag {
+      display: block;
+      font-size: 0.72em;
+      font-weight: 700;
+      margin-top: 4px;
+      opacity: 0.9;
+    }
+
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 10px 18px;
+      border-radius: 999px;
+      font-size: clamp(0.9rem, 1.4vw, 1.05rem);
+      font-weight: 700;
+      animation: popIn 0.5s 0.8s ease both;
+    }
+
+    .badge.warn { background: var(--warn-bg); color: #b91c1c; }
+    .badge.ok { background: var(--ok-bg); color: #15803d; }
+    .badge.info { background: var(--blue-light); color: var(--blue); }
+
+    /* 依赖关系图（独立于表格，避免与文字重叠） */
+    .dep-diagram {
+      margin-top: 22px;
+      padding: clamp(18px, 2.5vw, 24px) clamp(16px, 2vw, 28px);
+      background: linear-gradient(180deg, #f8fafc, #f1f5f9);
+      border: 1px solid #e2e8f0;
+      border-radius: 14px;
+      animation: fadeUp 0.6s 0.35s ease both;
+    }
+
+    .dep-diagram-title {
+      text-align: center;
+      font-size: clamp(0.92rem, 1.5vw, 1.08rem);
+      font-weight: 700;
+      color: var(--muted);
+      margin-bottom: 16px;
+    }
+
+    .dep-row {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: clamp(10px, 2vw, 20px);
+      flex-wrap: wrap;
+    }
+
+    .dep-node {
+      min-width: clamp(100px, 14vw, 140px);
+      padding: clamp(12px, 1.8vw, 16px) clamp(14px, 2vw, 22px);
+      border-radius: 12px;
+      border: 2px solid #cbd5e1;
+      background: #fff;
+      text-align: center;
+      font-size: clamp(0.95rem, 1.6vw, 1.15rem);
+      font-weight: 700;
+      line-height: 1.35;
+    }
+
+    .dep-node small {
+      display: block;
+      font-size: 0.78em;
+      font-weight: 600;
+      color: var(--muted);
+      margin-top: 4px;
+    }
+
+    .dep-node.danger {
+      border-color: #fca5a5;
+      background: var(--warn-bg);
+      color: #b91c1c;
+    }
+
+    .dep-node.primary {
+      border-color: #93c5fd;
+      background: var(--blue-light);
+      color: var(--blue);
+    }
+
+    .dep-node.success {
+      border-color: #86efac;
+      background: var(--ok-bg);
+      color: #15803d;
+    }
+
+    .dep-node.warn {
+      border-color: #fdba74;
+      background: #ffedd5;
+      color: #c2410c;
+    }
+
+    .dep-arrow {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 6px;
+      min-width: 72px;
+      color: var(--blue);
+      font-weight: 700;
+      font-size: clamp(0.82rem, 1.3vw, 0.98rem);
+    }
+
+    .dep-arrow.warn { color: #ea580c; }
+    .dep-arrow.success { color: #16a34a; }
+
+    .dep-arrow-line {
+      position: relative;
+      width: clamp(56px, 10vw, 88px);
+      height: 3px;
+      background: currentColor;
+      border-radius: 999px;
+    }
+
+    .dep-arrow-line::after {
+      content: "";
+      position: absolute;
+      right: -1px;
+      top: 50%;
+      transform: translateY(-50%);
+      border: 7px solid transparent;
+      border-left-color: currentColor;
+      border-right: none;
+    }
+
+    .dep-caption {
+      margin-top: 14px;
+      text-align: center;
+      font-size: clamp(0.95rem, 1.5vw, 1.12rem);
+      font-weight: 700;
+      color: #b91c1c;
+    }
+
+    .dep-caption.ok { color: #15803d; }
+    .dep-caption.warn { color: #c2410c; }
+
+    /* 第四页：2NF 分步说明 */
+    .nf2-panel {
+      background: var(--card);
+      border-radius: 18px;
+      padding: clamp(22px, 3vw, 32px);
+      box-shadow: 0 10px 30px rgba(15, 23, 42, 0.08);
+      animation: fadeUp 0.7s ease both;
+      width: 100%;
+    }
+
+    .nf2-panel > h3 {
+      font-size: clamp(1.2rem, 2.2vw, 1.55rem);
+      color: var(--blue);
+      margin-bottom: 8px;
+      text-align: center;
+    }
+
+    .nf2-panel > .nf2-lead {
+      text-align: center;
+      color: var(--muted);
+      font-size: clamp(0.95rem, 1.5vw, 1.1rem);
+      margin-bottom: 22px;
+    }
+
+    .nf2-steps {
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
+    }
+
+    .nf2-step {
+      display: grid;
+      grid-template-columns: auto 1fr;
+      gap: 16px;
+      align-items: start;
+      padding: clamp(14px, 2vw, 18px);
+      border-radius: 14px;
+      background: #f8fafc;
+      border: 1px solid #e2e8f0;
+      opacity: 0;
+      transform: translateY(10px);
+    }
+
+    .scene.active .nf2-step:nth-child(1) { animation: fadeUp 0.5s 0.15s ease forwards; }
+    .scene.active .nf2-step:nth-child(2) { animation: fadeUp 0.5s 0.35s ease forwards; }
+    .scene.active .nf2-step:nth-child(3) { animation: fadeUp 0.5s 0.55s ease forwards; }
+
+    .step-num {
+      width: 40px;
+      height: 40px;
+      border-radius: 50%;
+      background: var(--blue);
+      color: #fff;
+      display: grid;
+      place-items: center;
+      font-weight: 800;
+      font-size: 1.1rem;
+      flex-shrink: 0;
+    }
+
+    .step-body h4 {
+      font-size: clamp(1rem, 1.7vw, 1.2rem);
+      color: var(--text);
+      margin-bottom: 8px;
+    }
+
+    .step-body p {
+      font-size: clamp(0.92rem, 1.5vw, 1.08rem);
+      line-height: 1.65;
+      color: #334155;
+    }
+
+    .pk-group {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      margin-top: 10px;
+    }
+
+    .pk-chip {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 8px 14px;
+      border-radius: 10px;
+      background: #fef9c3;
+      border: 2px solid #facc15;
+      color: #854d0e;
+      font-weight: 700;
+      font-size: clamp(0.95rem, 1.5vw, 1.1rem);
+    }
+
+    .compare-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 12px;
+      margin-top: 12px;
+    }
+
+    .compare-card {
+      padding: 12px 14px;
+      border-radius: 12px;
+      font-size: clamp(0.88rem, 1.4vw, 1rem);
+      line-height: 1.55;
+    }
+
+    .compare-card.good {
+      background: var(--ok-bg);
+      border: 1px solid #86efac;
+      color: #166534;
+    }
+
+    .compare-card.bad {
+      background: #ffedd5;
+      border: 1px solid #fdba74;
+      color: #9a3412;
+    }
+
+    .compare-card strong {
+      display: block;
+      margin-bottom: 6px;
+      font-size: 1.05em;
+    }
+
+    .dep-row .badge { margin-top: 0; flex-shrink: 0; }
+
+    .question-mark {
+      position: absolute;
+      top: clamp(12px, 2vw, 24px);
+      left: clamp(12px, 2vw, 24px);
+      width: clamp(52px, 6vw, 64px);
+      height: clamp(52px, 6vw, 64px);
+      border-radius: 50%;
+      background: var(--blue);
+      color: #fff;
+      display: grid;
+      place-items: center;
+      font-size: 1.8rem;
+      font-weight: 800;
+      animation: bounce 1.2s ease infinite;
+    }
+
+    .split-layout {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 28px;
+      width: 100%;
+      align-items: center;
+    }
+
+    .key-card, .rule-card {
+      background: var(--card);
+      border-radius: 16px;
+      padding: 24px;
+      box-shadow: 0 10px 30px rgba(15, 23, 42, 0.08);
+      animation: fadeUp 0.7s ease both;
+    }
+
+    .key-card h3, .rule-card h3 {
+      font-size: 1rem;
+      color: var(--blue);
+      margin-bottom: 12px;
+    }
+
+    .pk-pill {
+      display: inline-block;
+      padding: 8px 14px;
+      border-radius: 10px;
+      background: var(--blue-light);
+      color: var(--blue);
+      font-weight: 700;
+    }
+
+    .rule-card p {
+      font-size: clamp(0.95rem, 1.5vw, 1.1rem);
+      line-height: 1.7;
+    }
+
+    .rule-card em {
+      font-style: normal;
+      background: #fef3c7;
+      color: #b45309;
+      padding: 2px 6px;
+      border-radius: 6px;
+      font-weight: 700;
+    }
+
+    .scene-relative { position: relative; width: 100%; }
+
+    .cross-mark {
+      position: absolute;
+      top: 10px;
+      right: 10px;
+      width: 52px;
+      height: 52px;
+      border-radius: 50%;
+      background: var(--warn-bg);
+      color: #b91c1c;
+      display: grid;
+      place-items: center;
+      font-size: 1.6rem;
+      font-weight: 800;
+      animation: popIn 0.5s 1s ease both;
+    }
+
+    .partial-label {
+      margin-top: 16px;
+      padding: 12px 16px;
+      border-radius: 12px;
+      background: #ffedd5;
+      border: 1px solid #fdba74;
+      color: #c2410c;
+      font-weight: 700;
+      font-size: clamp(0.95rem, 1.5vw, 1.1rem);
+      text-align: center;
+      animation: fadeUp 0.6s 0.9s ease both;
+    }
+
+    .split-tables {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: clamp(14px, 2vw, 22px);
+      width: 100%;
+    }
+
+    .mini-table {
+      background: var(--card);
+      border-radius: 16px;
+      padding: clamp(16px, 2vw, 22px);
+      box-shadow: 0 8px 24px rgba(15, 23, 42, 0.08);
+      opacity: 0;
+      transform: translateY(20px) scale(0.92);
+    }
+
+    .scene.active .mini-table:nth-child(1) { animation: splitIn 0.6s 0.2s ease forwards; }
+    .scene.active .mini-table:nth-child(2) { animation: splitIn 0.6s 0.45s ease forwards; }
+    .scene.active .mini-table:nth-child(3) { animation: splitIn 0.6s 0.7s ease forwards; }
+
+    .mini-table h4 {
+      font-size: clamp(1rem, 1.6vw, 1.15rem);
+      color: var(--blue);
+      margin-bottom: 12px;
+      text-align: center;
+      font-weight: 700;
+    }
+
+    .mini-table table.data-table { font-size: clamp(0.92rem, 1.5vw, 1.1rem); }
+    .mini-table table.data-table th,
+    .mini-table table.data-table td { padding: 12px 10px; }
+
+    .check-mark {
+      position: absolute;
+      bottom: 96px;
+      right: 40px;
+      width: 64px;
+      height: 64px;
+      border-radius: 50%;
+      background: var(--ok-bg);
+      color: var(--ok);
+      display: grid;
+      place-items: center;
+      font-size: 2rem;
+      font-weight: 800;
+      opacity: 0;
+    }
+
+    .scene.active .check-mark { animation: popIn 0.5s 1.1s ease forwards; }
+
+    .summary-list {
+      list-style: none;
+      width: 100%;
+    }
+
+    .summary-list li {
+      background: var(--card);
+      margin-bottom: 12px;
+      padding: 16px 18px;
+      border-radius: 14px;
+      box-shadow: 0 8px 20px rgba(15, 23, 42, 0.06);
+      font-size: clamp(0.95rem, 1.5vw, 1.1rem);
+      opacity: 0;
+      transform: translateX(-16px);
+    }
+
+    .scene.active .summary-list li:nth-child(1) { animation: slideIn 0.5s 0.15s ease forwards; }
+    .scene.active .summary-list li:nth-child(2) { animation: slideIn 0.5s 0.35s ease forwards; }
+    .scene.active .summary-list li:nth-child(3) { animation: slideIn 0.5s 0.55s ease forwards; }
+
+    .summary-footer {
+      margin-top: 18px;
+      padding: 14px 20px;
+      border-radius: 14px;
+      background: linear-gradient(90deg, var(--blue-light), #eff6ff);
+      color: var(--blue);
+      font-weight: 800;
+      font-size: clamp(1rem, 1.6vw, 1.2rem);
+      opacity: 0;
+    }
+
+    .scene.active .summary-footer { animation: fadeUp 0.6s 0.85s ease forwards; }
+
+    @keyframes fadeUp {
+      from { opacity: 0; transform: translateY(18px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+    @keyframes rowIn { to { opacity: 1; transform: translateY(0); } }
+    @keyframes pulseCol {
+      0%, 100% { box-shadow: inset 0 0 0 0 rgba(239, 68, 68, 0); }
+      50% { box-shadow: inset 0 0 0 2px rgba(239, 68, 68, 0.35); }
+    }
+    @keyframes bounce {
+      0%, 100% { transform: translateY(0); }
+      50% { transform: translateY(-6px); }
+    }
+    @keyframes popIn {
+      from { opacity: 0; transform: scale(0.6); }
+      to { opacity: 1; transform: scale(1); }
+    }
+    @keyframes splitIn {
+      to { opacity: 1; transform: translateY(0) scale(1); }
+    }
+    @keyframes slideIn {
+      to { opacity: 1; transform: translateX(0); }
+    }
+
+    @media (max-width: 900px) {
+      .split-layout, .split-tables, .compare-grid { grid-template-columns: 1fr; }
+      .dep-row { flex-direction: column; }
+      .dep-arrow-line { width: 3px; height: 48px; }
+      .dep-arrow-line::after {
+        right: auto;
+        left: 50%;
+        top: auto;
+        bottom: -1px;
+        transform: translateX(-50%);
+        border: 7px solid transparent;
+        border-top-color: currentColor;
+        border-left-color: transparent;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div id="app">
+    <div class="setup-overlay" id="setupOverlay">
+      <div class="setup-card">
+        <h2>本地 Python 配音 · 全屏演示</h2>
+        <p>
+          旁白由 Python 预生成为 <code>demo/audio/scene-XX.mp3</code>（Microsoft 神经网络发音，默认
+          <strong>edge-tts</strong>，无需 Azure Key）。页面播放本地 MP3，不依赖浏览器 SDK。
+        </p>
+        <pre class="cmd-block">pip install edge-tts
+python generate_narration.py
+cd demo &amp;&amp; python -m http.server 8765
+# 打开 http://localhost:8765/2nf-animation.html</pre>
+        <div class="setup-actions">
+          <button id="startBtn" class="primary">全屏开始（本地配音）</button>
+          <button id="skipVoiceBtn" class="ghost">无配音仅全屏</button>
+        </div>
+        <div class="status-pill" id="setupStatus">检测本地音频…</div>
+      </div>
+    </div>
+
+    <div class="presentation">
+      <div class="top-bar">
+        <h1>第二范式 2NF · 讲解动画</h1>
+        <div class="top-bar-right">
+          <span class="voice-badge" id="voiceBadge">本地配音</span>
+          <button id="settingsBtn" class="ghost">设置</button>
+          <button id="fsBtn">退出全屏</button>
+        </div>
+      </div>
+
+      <div class="stage-wrap">
+        <div class="stage" id="stage">
+          <section class="scene active" data-index="0">
+            <div class="title-card">
+              <h2>数据库第二范式 2NF</h2>
+              <span class="tag">1 分钟搞懂</span>
+            </div>
+            <div class="subtitle-bar">今天用 1 分钟讲清楚：什么是第二范式，以及为什么要用它。</div>
+          </section>
+
+          <section class="scene" data-index="1">
+            <div class="scene-content">
+              <div class="question-mark">?</div>
+              <div class="table-box">
+                <div class="table-title">学生选课表（未规范化）</div>
+                <table class="data-table">
+                  <thead>
+                    <tr><th>学号</th><th>姓名</th><th>课程号</th><th>课程名</th><th>成绩</th></tr>
+                  </thead>
+                  <tbody>
+                    <tr class="data-row"><td>S001</td><td>张三</td><td>C01</td><td>数据库</td><td>92</td></tr>
+                    <tr class="data-row"><td>S001</td><td>张三</td><td>C02</td><td>操作系统</td><td>88</td></tr>
+                    <tr class="data-row"><td>S002</td><td>李四</td><td>C01</td><td>数据库</td><td>85</td></tr>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+            <div class="subtitle-bar">假设有这样一张表，记录了学号、姓名、课程和成绩。你觉得这样设计有问题吗？</div>
+          </section>
+
+          <section class="scene" data-index="2">
+            <div class="scene-content">
+              <div class="table-box">
+                <div class="table-title">冗余问题：姓名随选课记录重复出现</div>
+                <table class="data-table">
+                  <thead>
+                    <tr>
+                      <th>学号</th>
+                      <th class="highlight-col">姓名<span class="col-tag">重复列</span></th>
+                      <th>课程号</th><th>课程名</th><th>成绩</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <tr><td>S001</td><td class="highlight-col">张三</td><td>C01</td><td>数据库</td><td>92</td></tr>
+                    <tr><td>S001</td><td class="highlight-col">张三</td><td>C02</td><td>操作系统</td><td>88</td></tr>
+                    <tr><td>S002</td><td class="highlight-col">李四</td><td>C01</td><td>数据库</td><td>85</td></tr>
+                  </tbody>
+                </table>
+                <div class="dep-diagram">
+                  <div class="dep-diagram-title">函数依赖关系（与上表分开显示，避免重叠）</div>
+                  <div class="dep-row">
+                    <div class="dep-node primary">学号<small>例：S001</small></div>
+                    <div class="dep-arrow">
+                      <span>决定</span>
+                      <div class="dep-arrow-line"></div>
+                    </div>
+                    <div class="dep-node danger">姓名<small>例：张三</small></div>
+                  </div>
+                  <div class="dep-caption">同一学号 → 同一姓名，却在多行重复存储</div>
+                </div>
+                <span class="badge warn">⚠ 数据冗余：更新异常、浪费空间</span>
+              </div>
+            </div>
+            <div class="subtitle-bar">同一个学号对应同一个姓名，但姓名会在每一行重复出现，这就是冗余。</div>
+          </section>
+
+          <section class="scene" data-index="3">
+            <div class="scene-content">
+              <div class="nf2-panel">
+                <h3>第二范式（2NF）在检查什么？</h3>
+                <p class="nf2-lead">前提：已满足 1NF（字段原子） · 下面用「复合主键」举例</p>
+                <div class="nf2-steps">
+                  <div class="nf2-step">
+                    <div class="step-num">1</div>
+                    <div class="step-body">
+                      <h4>先确定主键 PK</h4>
+                      <p>选课表的主键是 <strong>两个字段的组合</strong>，单独一个字段不能唯一标识一行。</p>
+                      <div class="pk-group">
+                        <span class="pk-chip">学号</span>
+                        <span class="pk-chip">+</span>
+                        <span class="pk-chip">课程号</span>
+                        <span class="pk-chip">= 复合主键 PK</span>
+                      </div>
+                    </div>
+                  </div>
+                  <div class="nf2-step">
+                    <div class="step-num">2</div>
+                    <div class="step-body">
+                      <h4>再看非主键字段怎么依赖主键</h4>
+                      <div class="compare-grid">
+                        <div class="compare-card good">
+                          <strong>✓ 完全依赖</strong>
+                          成绩 只由 <em>学号 + 课程号</em> 一起决定。<br>必须两个主键字段都在，才能确定成绩。
+                        </div>
+                        <div class="compare-card bad">
+                          <strong>✗ 部分依赖</strong>
+                          课程名 只由 <em>课程号</em> 决定，<br>与学号无关 → 只依赖主键的一部分。
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                  <div class="nf2-step">
+                    <div class="step-num">3</div>
+                    <div class="step-body">
+                      <h4>2NF 结论</h4>
+                      <p><strong>消除部分依赖：</strong>所有非主键字段必须<strong>完全</strong>依赖于<strong>整个</strong>主键。只要存在「只依赖主键一部分」的字段，就不满足 2NF，需要拆表。</p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+            <div class="subtitle-bar">第二范式要求：所有非主键字段，必须完全依赖于整个主键，而不是只依赖其中一部分。</div>
+          </section>
+
+          <section class="scene" data-index="4">
+            <div class="scene-content">
+              <div class="table-box scene-relative">
+                <div class="cross-mark">✕</div>
+                <div class="table-title">反例：课程名对复合主键存在「部分依赖」</div>
+                <table class="data-table">
+                  <thead>
+                    <tr>
+                      <th class="pk-col">学号<span class="col-tag">PK</span></th>
+                      <th>姓名</th>
+                      <th class="pk-col">课程号<span class="col-tag">PK</span></th>
+                      <th class="highlight-partial">课程名<span class="col-tag">非主键</span></th>
+                      <th class="highlight-ok">成绩<span class="col-tag">非主键</span></th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <tr><td>S001</td><td>张三</td><td>C01</td><td class="highlight-partial">数据库</td><td class="highlight-ok">92</td></tr>
+                    <tr><td>S001</td><td>张三</td><td>C02</td><td class="highlight-partial">操作系统</td><td class="highlight-ok">88</td></tr>
+                  </tbody>
+                </table>
+                <div class="dep-diagram">
+                  <div class="dep-diagram-title">对比两种依赖（黄色 = 主键字段）</div>
+                  <div class="dep-row" style="margin-bottom: 14px;">
+                    <div class="dep-node primary">课程号<small>PK 的一部分</small></div>
+                    <div class="dep-arrow warn">
+                      <span>部分依赖</span>
+                      <div class="dep-arrow-line"></div>
+                    </div>
+                    <div class="dep-node warn">课程名<small>非主键</small></div>
+                    <span class="badge warn">✕ 违反 2NF</span>
+                  </div>
+                  <div class="dep-row">
+                    <div class="dep-node primary">学号 + 课程号<small>完整 PK</small></div>
+                    <div class="dep-arrow success">
+                      <span>完全依赖</span>
+                      <div class="dep-arrow-line"></div>
+                    </div>
+                    <div class="dep-node success">成绩<small>非主键</small></div>
+                    <span class="badge ok">✓ 符合 2NF</span>
+                  </div>
+                </div>
+                <div class="partial-label">问题：课程名不需要「学号」就能确定，却放在以 (学号, 课程号) 为主键的表里</div>
+              </div>
+            </div>
+            <div class="subtitle-bar">课程名其实只依赖课程号，并不依赖学号，这就是对部分主键的依赖，违反了 2NF。</div>
+          </section>
+
+          <section class="scene" data-index="5">
+            <div class="scene-content">
+              <div class="split-tables">
+                <div class="mini-table">
+                  <h4>学生表</h4>
+                  <table class="data-table"><thead><tr><th>学号</th><th>姓名</th></tr></thead>
+                    <tbody><tr><td>S001</td><td>张三</td></tr><tr><td>S002</td><td>李四</td></tr></tbody></table>
+                </div>
+                <div class="mini-table">
+                  <h4>课程表</h4>
+                  <table class="data-table"><thead><tr><th>课程号</th><th>课程名</th></tr></thead>
+                    <tbody><tr><td>C01</td><td>数据库</td></tr><tr><td>C02</td><td>操作系统</td></tr></tbody></table>
+                </div>
+                <div class="mini-table">
+                  <h4>选课表</h4>
+                  <table class="data-table"><thead><tr><th>学号</th><th>课程号</th><th>成绩</th></tr></thead>
+                    <tbody><tr><td>S001</td><td>C01</td><td>92</td></tr><tr><td>S001</td><td>C02</td><td>88</td></tr></tbody></table>
+                </div>
+              </div>
+              <div class="dep-diagram" style="margin-top: 18px;">
+                <div class="dep-diagram-title">拆表后：部分依赖被拆到各自的表中</div>
+                <div class="dep-row">
+                  <div class="dep-node primary">学生表</div>
+                  <div class="dep-node primary">课程表</div>
+                  <div class="dep-node success">选课表（仅保留完全依赖字段）</div>
+                </div>
+              </div>
+            </div>
+            <div class="check-mark">✓</div>
+            <div class="subtitle-bar">正确做法是拆成学生表、课程表和选课表，把部分依赖拆开。</div>
+          </section>
+
+          <section class="scene" data-index="6">
+            <div class="scene-content">
+              <ul class="summary-list">
+                <li>1. 先找主键（单一或复合）</li>
+                <li>2. 检查非主键是否完全依赖主键</li>
+                <li>3. 有部分依赖 → 拆表</li>
+              </ul>
+              <div class="summary-footer">第二范式 = 消除部分依赖</div>
+            </div>
+            <div class="subtitle-bar">记住：2NF 的核心，就是消除非主键字段对部分主键的依赖。</div>
+          </section>
+        </div>
+      </div>
+
+      <div class="controls">
+        <div class="controls-left">
+          <button id="prevBtn">上一镜</button>
+          <button id="playBtn" class="primary">暂停</button>
+          <button id="nextBtn">下一镜</button>
+        </div>
+        <div class="dots" id="dots"></div>
+        <div class="controls-right">
+          <span class="scene-label" id="sceneLabel">场景 1 / 7</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const FALLBACK_DURATIONS = [4500, 5500, 6000, 6500, 7000, 7000, 5500];
+    const PAUSE_AFTER_SPEECH_MS = 900;
+
+    const app = document.getElementById("app");
+    const setupOverlay = document.getElementById("setupOverlay");
+    const setupStatus = document.getElementById("setupStatus");
+    const voiceBadge = document.getElementById("voiceBadge");
+    const scenes = Array.from(document.querySelectorAll(".scene"));
+    const dotsEl = document.getElementById("dots");
+    const sceneLabel = document.getElementById("sceneLabel");
+    const playBtn = document.getElementById("playBtn");
+    const fsBtn = document.getElementById("fsBtn");
+    const narrator = new Audio();
+
+    let current = 0;
+    let playing = false;
+    let started = false;
+    let timer = null;
+    let voiceEnabled = true;
+    let localAudioReady = false;
+    let manifestMeta = null;
+    let playToken = 0;
+
+    scenes.forEach((_, i) => {
+      const dot = document.createElement("span");
+      dot.className = "dot" + (i === 0 ? " active" : "");
+      dot.addEventListener("click", () => {
+        if (!started) return;
+        goTo(i, true);
+      });
+      dotsEl.appendChild(dot);
+    });
+
+    const dots = Array.from(document.querySelectorAll(".dot"));
+
+    function audioPath(index) {
+      return `audio/scene-${String(index + 1).padStart(2, "0")}.mp3`;
+    }
+
+    function setSpeakingVisual(active) {
+      scenes.forEach((scene, i) => {
+        const bar = scene.querySelector(".subtitle-bar");
+        if (bar) bar.classList.toggle("speaking", active && i === current);
+      });
+    }
+
+    function show(index) {
+      scenes.forEach((s, i) => s.classList.toggle("active", i === index));
+      dots.forEach((d, i) => d.classList.toggle("active", i === index));
+      sceneLabel.textContent = `场景 ${index + 1} / ${scenes.length}`;
+      current = index;
+    }
+
+    function clearAdvanceTimer() {
+      if (timer) {
+        clearTimeout(timer);
+        timer = null;
+      }
+    }
+
+    function stopSpeech() {
+      playToken += 1;
+      narrator.pause();
+      narrator.currentTime = 0;
+      setSpeakingVisual(false);
+    }
+
+    function playLocal(index) {
+      const token = ++playToken;
+      return new Promise((resolve, reject) => {
+        narrator.onended = () => {
+          if (token !== playToken) return;
+          setSpeakingVisual(false);
+          resolve();
+        };
+        narrator.onerror = () => {
+          if (token !== playToken) return;
+          setSpeakingVisual(false);
+          reject(new Error("音频加载失败"));
+        };
+        narrator.src = audioPath(index);
+        setSpeakingVisual(true);
+        narrator.play().catch((err) => {
+          if (token !== playToken) return;
+          setSpeakingVisual(false);
+          reject(err);
+        });
+      });
+    }
+
+    function scheduleFallback(index) {
+      clearAdvanceTimer();
+      if (!playing) return;
+      timer = setTimeout(() => {
+        goTo((index + 1) % scenes.length);
+      }, FALLBACK_DURATIONS[index] || 5000);
+    }
+
+    async function detectLocalAudio() {
+      try {
+        const res = await fetch("audio/manifest.json", { cache: "no-store" });
+        if (res.ok) {
+          manifestMeta = await res.json();
+          localAudioReady = true;
+          setupStatus.className = "status-pill ok";
+          setupStatus.textContent = `已检测到本地配音（${manifestMeta.voice || "edge-tts"}，${manifestMeta.scenes?.length || scenes.length} 镜）`;
+          voiceBadge.textContent = `本地 · ${manifestMeta.voice || "MP3"}`;
+          return;
+        }
+      } catch (_) {}
+
+      try {
+        const probe = new Audio();
+        probe.src = audioPath(0);
+        await new Promise((resolve, reject) => {
+          probe.addEventListener("canplaythrough", resolve, { once: true });
+          probe.addEventListener("error", reject, { once: true });
+        });
+        localAudioReady = true;
+        setupStatus.className = "status-pill ok";
+        setupStatus.textContent = "已检测到 scene-01.mp3，可播放本地配音。";
+      } catch (_) {
+        localAudioReady = false;
+        setupStatus.className = "status-pill error";
+        setupStatus.textContent = "未找到本地 MP3。请先运行 python generate_narration.py，并用 http.server 打开页面。";
+        voiceBadge.textContent = "无本地音频";
+      }
+    }
+
+    async function narrateAndAdvance(index) {
+      clearAdvanceTimer();
+      stopSpeech();
+      show(index);
+      if (!playing) return;
+
+      if (voiceEnabled && localAudioReady) {
+        try {
+          await playLocal(index);
+          if (!playing) return;
+          clearAdvanceTimer();
+          timer = setTimeout(() => {
+            goTo((index + 1) % scenes.length);
+          }, PAUSE_AFTER_SPEECH_MS);
+        } catch (err) {
+          console.error(err);
+          voiceBadge.textContent = "配音失败 · 定时切镜";
+          scheduleFallback(index);
+        }
+      } else {
+        scheduleFallback(index);
+      }
+    }
+
+    function goTo(index, manual = false) {
+      if (manual && !playing) {
+        show(index);
+        return;
+      }
+      narrateAndAdvance(index);
+    }
+
+    async function enterFullscreen() {
+      if (app.requestFullscreen) await app.requestFullscreen();
+      else if (app.webkitRequestFullscreen) await app.webkitRequestFullscreen();
+      fsBtn.textContent = "退出全屏";
+    }
+
+    function exitFullscreen() {
+      if (document.fullscreenElement) document.exitFullscreen();
+      else if (document.webkitFullscreenElement) document.webkitExitFullscreen();
+      fsBtn.textContent = "进入全屏";
+    }
+
+    async function startPresentation(useVoice) {
+      voiceEnabled = useVoice && localAudioReady;
+      setupOverlay.classList.add("hidden");
+      started = true;
+      playing = true;
+      playBtn.textContent = "暂停";
+      if (!voiceEnabled) {
+        voiceBadge.textContent = "无配音 · 定时切镜";
+      }
+
+      try {
+        await enterFullscreen();
+      } catch (_) {}
+
+      goTo(0);
+    }
+
+    document.getElementById("startBtn").addEventListener("click", async () => {
+      if (!localAudioReady) {
+        setupStatus.className = "status-pill error";
+        setupStatus.textContent = "请先生成 audio/scene-XX.mp3（见上方命令）。";
+        return;
+      }
+      await startPresentation(true);
+    });
+
+    document.getElementById("skipVoiceBtn").addEventListener("click", async () => {
+      await startPresentation(false);
+    });
+
+    document.getElementById("settingsBtn").addEventListener("click", () => {
+      playing = false;
+      clearAdvanceTimer();
+      stopSpeech();
+      setupOverlay.classList.remove("hidden");
+    });
+
+    fsBtn.addEventListener("click", () => {
+      if (document.fullscreenElement || document.webkitFullscreenElement) exitFullscreen();
+      else enterFullscreen();
+    });
+
+    document.addEventListener("fullscreenchange", () => {
+      fsBtn.textContent = document.fullscreenElement ? "退出全屏" : "进入全屏";
+    });
+
+    playBtn.addEventListener("click", () => {
+      if (!started) return;
+      playing = !playing;
+      playBtn.textContent = playing ? "暂停" : "播放";
+      if (playing) narrateAndAdvance(current);
+      else {
+        clearAdvanceTimer();
+        stopSpeech();
+      }
+    });
+
+    document.getElementById("prevBtn").addEventListener("click", () => {
+      if (!started) return;
+      playing = true;
+      playBtn.textContent = "暂停";
+      goTo((current - 1 + scenes.length) % scenes.length, true);
+    });
+
+    document.getElementById("nextBtn").addEventListener("click", () => {
+      if (!started) return;
+      playing = true;
+      playBtn.textContent = "暂停";
+      goTo((current + 1) % scenes.length, true);
+    });
+
+    detectLocalAudio();
+  </script>
+</body>
+</html>

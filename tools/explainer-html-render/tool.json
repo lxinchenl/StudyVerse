@@ -1,0 +1,6 @@
+{
+  "id": "explainer-html-render",
+  "name": "Storyboard 渲染 HTML",
+  "handler": "app.infrastructure.explainer.html_renderer:render_explainer_html",
+  "used_by": ["video-agent", "explainer-video-html"]
+}

@@ -1,0 +1,18 @@
+{
+  "id": "tutorial-to-notes",
+  "name": "Tutorial to Notes",
+  "version": "1",
+  "agent": "note-agent",
+  "delivery": "markdown",
+  "docs": {
+    "skill": "SKILL.md",
+    "format": "references/notes-format.md"
+  },
+  "pipeline": [
+    "analyze_intent",
+    "extract_or_conversation",
+    "vision_analyze",
+    "structure_analyze",
+    "compose_markdown_notes"
+  ]
+}
