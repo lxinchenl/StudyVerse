@@ -38,22 +38,22 @@ data/courses/
 
 新增课程后重启后端，或删除 `data/cache/course_material_chunks.json` 刷新检索索引。
 
-## 向量库 / 知识图谱（复用 kg_rag_demo）
+## 向量库 / 知识图谱
 
-后端直接读取原有数据，无需重建：
+默认读取本仓库内的知识库目录：
 
 | 组件 | 默认路径 / 配置 |
 |------|----------------|
-| Chroma | `kg_rag_demo/workdir/chroma`，collection `kg_rag_demo` |
-| Neo4j | `NEO4J_URI` / `NEO4J_PASSWORD`（与 kg_rag_demo 相同） |
-| 图谱 JSON 回退 | `kg_rag_demo/data/data/subgraphs.json` |
+| Chroma | `data/kg/chroma`，collection `edu_agent` |
+| Neo4j | `NEO4J_URI` / `NEO4J_PASSWORD` |
+| 图谱 JSON 回退 | `data/kg/data/subgraphs.json` |
 
 环境变量（`.env` 根目录）：
 
 ```env
 NEO4J_PASSWORD=你的密码
 # 可选
-EDU_AGENT_CHROMA_COLLECTION=kg_rag_demo
+EDU_AGENT_CHROMA_COLLECTION=edu_agent
 EDU_AGENT_EMBED_MODEL_PATH=BAAI/bge-small-zh-v1.5
 ```
 

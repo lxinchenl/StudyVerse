@@ -17,6 +17,8 @@ build/
 data/users/
 data/resources/
 data/generated_resources/
+data/kg/chroma/
+kg_rag_demo/
 
 # IDE / OS artifacts
 .DS_Store

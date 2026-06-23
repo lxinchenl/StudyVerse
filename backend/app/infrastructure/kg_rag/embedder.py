@@ -19,24 +19,29 @@ def resolve_embed_model_path(spec: str) -> str:
     parts = raw.split("/")
     if len(parts) != 2:
         return raw
-    cache_root = ROOT / "kg_rag_demo" / "model" / f"models--{parts[0]}--{parts[1]}"
-    snapshots = cache_root / "snapshots"
-    if not snapshots.is_dir():
-        return raw
-    ref = cache_root / "refs" / "main"
-    if ref.is_file():
-        commit = ref.read_text(encoding="utf-8").strip()
-        snap = snapshots / commit
-        if snap.is_dir():
-            return str(snap)
-    for child in sorted(snapshots.iterdir()):
-        if child.is_dir():
-            return str(child)
+    cache_roots = [
+        ROOT / "model",
+        ROOT / "data" / "models",
+    ]
+    for base in cache_roots:
+        cache_root = base / f"models--{parts[0]}--{parts[1]}"
+        snapshots = cache_root / "snapshots"
+        if not snapshots.is_dir():
+            continue
+        ref = cache_root / "refs" / "main"
+        if ref.is_file():
+            commit = ref.read_text(encoding="utf-8").strip()
+            snap = snapshots / commit
+            if snap.is_dir():
+                return str(snap)
+        for child in sorted(snapshots.iterdir()):
+            if child.is_dir():
+                return str(child)
     return raw
 
 
 class QueryEmbedder:
-    """Lazy local embedder for Chroma queries (same model family as kg_rag_demo)."""
+    """Lazy local embedder for Chroma query embeddings."""
 
     def __init__(self, model_path: str):
         self.model_path = resolve_embed_model_path(model_path)

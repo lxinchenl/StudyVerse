@@ -1,0 +1,454 @@
+[
+  {
+    "nodes": [
+      "法规",
+      "半监督学习",
+      "推理机",
+      "研究机构",
+      "模式识别",
+      "特征工程",
+      "GPT",
+      "人工智能",
+      "微调",
+      "注意力机制"
+    ],
+    "edges": [
+      {
+        "source": "研究机构",
+        "target": "特征工程",
+        "relation": "来源于",
+        "evidence": "研究机构 来源于 特征工程 的相关信息"
+      },
+      {
+        "source": "推理机",
+        "target": "特征工程",
+        "relation": "在...发展",
+        "evidence": "推理机 在...发展 特征工程 的相关信息"
+      },
+      {
+        "source": "模式识别",
+        "target": "半监督学习",
+        "relation": "扩展了",
+        "evidence": "模式识别 扩展了 半监督学习 的相关信息"
+      },
+      {
+        "source": "模式识别",
+        "target": "GPT",
+        "relation": "应用于",
+        "evidence": "模式识别 应用于 GPT 的相关信息"
+      },
+      {
+        "source": "研究机构",
+        "target": "模式识别",
+        "relation": "由...提出",
+        "evidence": "研究机构 由...提出 模式识别 的相关信息"
+      },
+      {
+        "source": "人工智能",
+        "target": "半监督学习",
+        "relation": "是...的组成部分",
+        "evidence": "人工智能 是...的组成部分 半监督学习 的相关信息"
+      },
+      {
+        "source": "模式识别",
+        "target": "GPT",
+        "relation": "在...发展",
+        "evidence": "模式识别 在...发展 GPT 的相关信息"
+      },
+      {
+        "source": "特征工程",
+        "target": "推理机",
+        "relation": "是",
+        "evidence": "特征工程 是 推理机 的相关信息"
+      },
+      {
+        "source": "特征工程",
+        "target": "人工智能",
+        "relation": "与...相关",
+        "evidence": "特征工程 与...相关 人工智能 的相关信息"
+      },
+      {
+        "source": "特征工程",
+        "target": "模式识别",
+        "relation": "来源于",
+        "evidence": "特征工程 来源于 模式识别 的相关信息"
+      },
+      {
+        "source": "注意力机制",
+        "target": "微调",
+        "relation": "应用于",
+        "evidence": "注意力机制 应用于 微调 的相关信息"
+      },
+      {
+        "source": "微调",
+        "target": "注意力机制",
+        "relation": "是...的子领域",
+        "evidence": "微调 是...的子领域 注意力机制 的相关信息"
+      },
+      {
+        "source": "研究机构",
+        "target": "法规",
+        "relation": "是...的子领域",
+        "evidence": "研究机构 是...的子领域 法规 的相关信息"
+      },
+      {
+        "source": "人工智能",
+        "target": "GPT",
+        "relation": "影响",
+        "evidence": "人工智能 影响 GPT 的相关信息"
+      }
+    ]
+  },
+  {
+    "nodes": [
+      "欧盟",
+      "美国",
+      "BERT",
+      "循环神经网络",
+      "机器学习",
+      "语义网",
+      "半监督学习",
+      "注意力机制",
+      "自然语言处理",
+      "卷积神经网络"
+    ],
+    "edges": [
+      {
+        "source": "BERT",
+        "target": "美国",
+        "relation": "提出了",
+        "evidence": "BERT 提出了 美国 的相关信息"
+      },
+      {
+        "source": "注意力机制",
+        "target": "循环神经网络",
+        "relation": "与...结合",
+        "evidence": "注意力机制 与...结合 循环神经网络 的相关信息"
+      },
+      {
+        "source": "循环神经网络",
+        "target": "语义网",
+        "relation": "在...发展",
+        "evidence": "循环神经网络 在...发展 语义网 的相关信息"
+      },
+      {
+        "source": "卷积神经网络",
+        "target": "循环神经网络",
+        "relation": "在...发展",
+        "evidence": "卷积神经网络 在...发展 循环神经网络 的相关信息"
+      },
+      {
+        "source": "欧盟",
+        "target": "美国",
+        "relation": "来源于",
+        "evidence": "欧盟 来源于 美国 的相关信息"
+      },
+      {
+        "source": "BERT",
+        "target": "美国",
+        "relation": "是...的基础",
+        "evidence": "BERT 是...的基础 美国 的相关信息"
+      },
+      {
+        "source": "美国",
+        "target": "卷积神经网络",
+        "relation": "是...的子领域",
+        "evidence": "美国 是...的子领域 卷积神经网络 的相关信息"
+      },
+      {
+        "source": "机器学习",
+        "target": "欧盟",
+        "relation": "在...发展",
+        "evidence": "机器学习 在...发展 欧盟 的相关信息"
+      },
+      {
+        "source": "机器学习",
+        "target": "自然语言处理",
+        "relation": "是...的基础",
+        "evidence": "机器学习 是...的基础 自然语言处理 的相关信息"
+      },
+      {
+        "source": "语义网",
+        "target": "半监督学习",
+        "relation": "相关于",
+        "evidence": "语义网 相关于 半监督学习 的相关信息"
+      }
+    ]
+  },
+  {
+    "nodes": [
+      "决策树",
+      "语义网",
+      "半监督学习",
+      "数据挖掘",
+      "神经网络",
+      "大学",
+      "研究机构",
+      "知识图谱",
+      "在线学习",
+      "反向传播"
+    ],
+    "edges": [
+      {
+        "source": "研究机构",
+        "target": "知识图谱",
+        "relation": "影响",
+        "evidence": "研究机构 影响 知识图谱 的相关信息"
+      },
+      {
+        "source": "在线学习",
+        "target": "决策树",
+        "relation": "扩展了",
+        "evidence": "在线学习 扩展了 决策树 的相关信息"
+      },
+      {
+        "source": "语义网",
+        "target": "半监督学习",
+        "relation": "是",
+        "evidence": "语义网 是 半监督学习 的相关信息"
+      },
+      {
+        "source": "知识图谱",
+        "target": "神经网络",
+        "relation": "提出了",
+        "evidence": "知识图谱 提出了 神经网络 的相关信息"
+      },
+      {
+        "source": "知识图谱",
+        "target": "语义网",
+        "relation": "影响",
+        "evidence": "知识图谱 影响 语义网 的相关信息"
+      },
+      {
+        "source": "知识图谱",
+        "target": "研究机构",
+        "relation": "影响",
+        "evidence": "知识图谱 影响 研究机构 的相关信息"
+      },
+      {
+        "source": "数据挖掘",
+        "target": "知识图谱",
+        "relation": "实现了",
+        "evidence": "数据挖掘 实现了 知识图谱 的相关信息"
+      },
+      {
+        "source": "知识图谱",
+        "target": "在线学习",
+        "relation": "应用于",
+        "evidence": "知识图谱 应用于 在线学习 的相关信息"
+      },
+      {
+        "source": "知识图谱",
+        "target": "数据挖掘",
+        "relation": "提出了",
+        "evidence": "知识图谱 提出了 数据挖掘 的相关信息"
+      },
+      {
+        "source": "半监督学习",
+        "target": "神经网络",
+        "relation": "是...的基础",
+        "evidence": "半监督学习 是...的基础 神经网络 的相关信息"
+      },
+      {
+        "source": "在线学习",
+        "target": "知识图谱",
+        "relation": "是",
+        "evidence": "在线学习 是 知识图谱 的相关信息"
+      },
+      {
+        "source": "研究机构",
+        "target": "知识图谱",
+        "relation": "是...的组成部分",
+        "evidence": "研究机构 是...的组成部分 知识图谱 的相关信息"
+      }
+    ]
+  },
+  {
+    "nodes": [
+      "强化学习",
+      "卷积神经网络",
+      "大模型",
+      "损失函数",
+      "无监督学习",
+      "大学",
+      "政策",
+      "梯度下降",
+      "迁移学习",
+      "BERT"
+    ],
+    "edges": [
+      {
+        "source": "损失函数",
+        "target": "无监督学习",
+        "relation": "扩展了",
+        "evidence": "损失函数 扩展了 无监督学习 的相关信息"
+      },
+      {
+        "source": "大学",
+        "target": "损失函数",
+        "relation": "与...相关",
+        "evidence": "大学 与...相关 损失函数 的相关信息"
+      },
+      {
+        "source": "梯度下降",
+        "target": "强化学习",
+        "relation": "是...的基础",
+        "evidence": "梯度下降 是...的基础 强化学习 的相关信息"
+      },
+      {
+        "source": "梯度下降",
+        "target": "大模型",
+        "relation": "由...提出",
+        "evidence": "梯度下降 由...提出 大模型 的相关信息"
+      },
+      {
+        "source": "强化学习",
+        "target": "政策",
+        "relation": "影响",
+        "evidence": "强化学习 影响 政策 的相关信息"
+      },
+      {
+        "source": "损失函数",
+        "target": "迁移学习",
+        "relation": "促进了",
+        "evidence": "损失函数 促进了 迁移学习 的相关信息"
+      },
+      {
+        "source": "迁移学习",
+        "target": "政策",
+        "relation": "是...的子领域",
+        "evidence": "迁移学习 是...的子领域 政策 的相关信息"
+      },
+      {
+        "source": "迁移学习",
+        "target": "政策",
+        "relation": "是",
+        "evidence": "迁移学习 是 政策 的相关信息"
+      },
+      {
+        "source": "大模型",
+        "target": "无监督学习",
+        "relation": "提出了",
+        "evidence": "大模型 提出了 无监督学习 的相关信息"
+      },
+      {
+        "source": "大模型",
+        "target": "大学",
+        "relation": "是",
+        "evidence": "大模型 是 大学 的相关信息"
+      },
+      {
+        "source": "迁移学习",
+        "target": "强化学习",
+        "relation": "来源于",
+        "evidence": "迁移学习 来源于 强化学习 的相关信息"
+      },
+      {
+        "source": "强化学习",
+        "target": "梯度下降",
+        "relation": "是...的基础",
+        "evidence": "强化学习 是...的基础 梯度下降 的相关信息"
+      },
+      {
+        "source": "损失函数",
+        "target": "大学",
+        "relation": "相关于",
+        "evidence": "损失函数 相关于 大学 的相关信息"
+      },
+      {
+        "source": "政策",
+        "target": "无监督学习",
+        "relation": "与...相关",
+        "evidence": "政策 与...相关 无监督学习 的相关信息"
+      }
+    ]
+  },
+  {
+    "nodes": [
+      "计算机视觉",
+      "美国",
+      "大学",
+      "半监督学习",
+      "语义网",
+      "智能代理",
+      "Transformer",
+      "大模型",
+      "决策树",
+      "实验室"
+    ],
+    "edges": [
+      {
+        "source": "Transformer",
+        "target": "美国",
+        "relation": "解决了",
+        "evidence": "Transformer 解决了 美国 的相关信息"
+      },
+      {
+        "source": "决策树",
+        "target": "Transformer",
+        "relation": "由...提出",
+        "evidence": "决策树 由...提出 Transformer 的相关信息"
+      },
+      {
+        "source": "决策树",
+        "target": "半监督学习",
+        "relation": "是",
+        "evidence": "决策树 是 半监督学习 的相关信息"
+      },
+      {
+        "source": "大学",
+        "target": "美国",
+        "relation": "相关于",
+        "evidence": "大学 相关于 美国 的相关信息"
+      },
+      {
+        "source": "决策树",
+        "target": "Transformer",
+        "relation": "相关于",
+        "evidence": "决策树 相关于 Transformer 的相关信息"
+      },
+      {
+        "source": "大学",
+        "target": "语义网",
+        "relation": "与...结合",
+        "evidence": "大学 与...结合 语义网 的相关信息"
+      },
+      {
+        "source": "Transformer",
+        "target": "智能代理",
+        "relation": "属于",
+        "evidence": "Transformer 属于 智能代理 的相关信息"
+      },
+      {
+        "source": "半监督学习",
+        "target": "计算机视觉",
+        "relation": "实现了",
+        "evidence": "半监督学习 实现了 计算机视觉 的相关信息"
+      },
+      {
+        "source": "Transformer",
+        "target": "计算机视觉",
+        "relation": "由...提出",
+        "evidence": "Transformer 由...提出 计算机视觉 的相关信息"
+      },
+      {
+        "source": "实验室",
+        "target": "半监督学习",
+        "relation": "包括",
+        "evidence": "实验室 包括 半监督学习 的相关信息"
+      },
+      {
+        "source": "大模型",
+        "target": "大学",
+        "relation": "是...的子领域",
+        "evidence": "大模型 是...的子领域 大学 的相关信息"
+      },
+      {
+        "source": "美国",
+        "target": "半监督学习",
+        "relation": "促进了",
+        "evidence": "美国 促进了 半监督学习 的相关信息"
+      }
+    ]
+  }
+]

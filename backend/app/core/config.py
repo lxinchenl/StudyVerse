@@ -8,7 +8,6 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 
 ROOT = Path(__file__).resolve().parents[3]
 load_dotenv(ROOT / ".env", override=False)
-load_dotenv(ROOT / "kg_rag_demo" / ".env", override=False)
 
 
 class Settings(BaseSettings):
@@ -18,15 +17,15 @@ class Settings(BaseSettings):
     llm_provider: str = "mock"
     users_dir: Path = ROOT / "data" / "users"
     courses_dir: Path = ROOT / "data" / "courses"
-    kg_data_dir: Path = ROOT / "kg_rag_demo" / "data" / "data"
+    kg_data_dir: Path = ROOT / "data" / "kg" / "data"
     cache_dir: Path = ROOT / "data" / "cache"
     resources_dir: Path = ROOT / "data" / "generated_resources"
     settings_dir: Path = ROOT / "data" / "settings"
     skills_dir: Path = ROOT / "skills"
     tools_dir: Path = ROOT / "tools"
 
-    chroma_dir: Path = ROOT / "kg_rag_demo" / "workdir" / "chroma"
-    chroma_collection: str = "kg_rag_demo"
+    chroma_dir: Path = ROOT / "data" / "kg" / "chroma"
+    chroma_collection: str = "edu_agent"
     embed_model_path: str = "BAAI/bge-small-zh-v1.5"
     neo4j_uri: str = "bolt://localhost:7687"
     neo4j_username: str = "neo4j"
@@ -60,4 +59,6 @@ def get_settings() -> Settings:
     settings.cache_dir.mkdir(parents=True, exist_ok=True)
     settings.courses_dir.mkdir(parents=True, exist_ok=True)
     settings.settings_dir.mkdir(parents=True, exist_ok=True)
+    settings.kg_data_dir.mkdir(parents=True, exist_ok=True)
+    settings.chroma_dir.mkdir(parents=True, exist_ok=True)
     return settings

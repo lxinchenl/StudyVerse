@@ -5,7 +5,7 @@ import chromadb
 
 
 class ChromaStore:
-    """Read-only adapter for existing kg_rag_demo Chroma persistent store."""
+    """Read-only adapter for local Chroma persistent store."""
 
     def __init__(self, chroma_dir: Path, collection_name: str, embedder):
         self.chroma_dir = chroma_dir

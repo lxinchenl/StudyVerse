@@ -7,7 +7,7 @@ _ENTITY_SPLIT = re.compile(r"[，。；、？！,.;!?\\s]+")
 
 
 class Neo4jStore:
-    """Read-only adapter for existing kg_rag_demo Neo4j graph."""
+    """Read-only adapter for Neo4j knowledge graph."""
 
     def __init__(self, uri: str, username: str, password: str):
         self.uri = uri

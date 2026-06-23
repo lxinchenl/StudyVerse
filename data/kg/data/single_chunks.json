@@ -1,0 +1,152 @@
+[
+  {
+    "chunk_id": "single_chunk_1",
+    "doc_id": "doc_single_1",
+    "text": "各国政府纷纷出台AI发展战略。 本体论为知识表示提供了形式化框架。 在线学习允许模型实时更新。 GPT系列模型展示了强大的语言生成能力。 特征工程是提升模型性能的关键步骤。 研究机构推动AI基础理论研究。 科技公司在AI发展中扮演重要角色。 神经网络是深度学习的基础。 循环神经网络适用于序列数据处理。 机器学习是人工智能的一个子领域。 监督学习需要标注数据进行训练。 欧盟重视AI伦理和法规制定。 强化学习通过奖励机制训练模型。 大学培养AI人才和开展前沿研究。 韩国在AI芯片和硬件方面进展显著。",
+    "source_path": "data/single_doc_1.txt",
+    "page_number": 1,
+    "title": "单块文档 1",
+    "order": 1,
+    "modality": "text"
+  },
+  {
+    "chunk_id": "single_chunk_2",
+    "doc_id": "doc_single_2",
+    "text": "支持向量机在高维空间中构建分类超平面。 决策树提供了直观的决策规则。 各国政府纷纷出台AI发展战略。 中国在人工智能领域发展迅速。 微调技术使得模型适应特定任务成为可能。 知识图谱用于表示实体间的关系。 人工智能是计算机科学的重要分支。 回归用于预测连续值输出。 韩国在AI芯片和硬件方面进展显著。 日本在机器人领域有独特优势。 在线学习允许模型实时更新。 长短期记忆网络解决了传统RNN的梯度消失问题。 美国在AI基础研究方面具有优势。 机器学习是人工智能的一个子领域。",
+    "source_path": "data/single_doc_2.txt",
+    "page_number": 1,
+    "title": "单块文档 2",
+    "order": 1,
+    "modality": "text"
+  },
+  {
+    "chunk_id": "single_chunk_3",
+    "doc_id": "doc_single_3",
+    "text": "本体论为知识表示提供了形式化框架。 中国在人工智能领域发展迅速。 循环神经网络适用于序列数据处理。 知识图谱用于表示实体间的关系。 实验室是AI技术孵化的重要场所。 微调技术使得模型适应特定任务成为可能。",
+    "source_path": "data/single_doc_3.txt",
+    "page_number": 1,
+    "title": "单块文档 3",
+    "order": 1,
+    "modality": "text"
+  },
+  {
+    "chunk_id": "single_chunk_4",
+    "doc_id": "doc_single_4",
+    "text": "循环神经网络适用于序列数据处理。 开源社区促进了AI技术的普及和发展。 大学培养AI人才和开展前沿研究。 知识图谱用于表示实体间的关系。 日本在机器人领域有独特优势。 GPT系列模型展示了强大的语言生成能力。",
+    "source_path": "data/single_doc_4.txt",
+    "page_number": 1,
+    "title": "单块文档 4",
+    "order": 1,
+    "modality": "text"
+  },
+  {
+    "chunk_id": "single_chunk_5",
+    "doc_id": "doc_single_5",
+    "text": "大模型是当前AI发展的主要趋势之一。 开源社区促进了AI技术的普及和发展。 科技公司在AI发展中扮演重要角色。 中国在人工智能领域发展迅速。 研究机构推动AI基础理论研究。 日本在机器人领域有独特优势。 半监督学习结合了标注和未标注数据。",
+    "source_path": "data/single_doc_5.txt",
+    "page_number": 1,
+    "title": "单块文档 5",
+    "order": 1,
+    "modality": "text"
+  },
+  {
+    "chunk_id": "single_chunk_6",
+    "doc_id": "doc_single_6",
+    "text": "决策树提供了直观的决策规则。 无监督学习发现数据中的潜在模式。 支持向量机在高维空间中构建分类超平面。 卷积神经网络在图像处理中表现出色。 微调技术使得模型适应特定任务成为可能。 美国在AI基础研究方面具有优势。 聚类是一种无监督学习方法。 各国政府纷纷出台AI发展战略。 迁移学习将在一个任务上学到的知识应用到另一个任务。",
+    "source_path": "data/single_doc_6.txt",
+    "page_number": 1,
+    "title": "单块文档 6",
+    "order": 1,
+    "modality": "text"
+  },
+  {
+    "chunk_id": "single_chunk_7",
+    "doc_id": "doc_single_7",
+    "text": "长短期记忆网络解决了传统RNN的梯度消失问题。 超参数优化有助于提升模型效果。 决策树提供了直观的决策规则。 深度学习是机器学习的一种方法。 反向传播算法用于计算梯度。 知识图谱用于表示实体间的关系。 自然语言处理使计算机能够理解和生成人类语言。 注意力机制帮助模型关注重要信息。 微调技术使得模型适应特定任务成为可能。",
+    "source_path": "data/single_doc_7.txt",
+    "page_number": 1,
+    "title": "单块文档 7",
+    "order": 1,
+    "modality": "text"
+  },
+  {
+    "chunk_id": "single_chunk_8",
+    "doc_id": "doc_single_8",
+    "text": "机器学习是人工智能的一个子领域。 自然语言处理使计算机能够理解和生成人类语言。 超参数优化有助于提升模型效果。 日本在机器人领域有独特优势。 半监督学习结合了标注和未标注数据。 迁移学习将在一个任务上学到的知识应用到另一个任务。 GPT系列模型展示了强大的语言生成能力。",
+    "source_path": "data/single_doc_8.txt",
+    "page_number": 1,
+    "title": "单块文档 8",
+    "order": 1,
+    "modality": "text"
+  },
+  {
+    "chunk_id": "single_chunk_9",
+    "doc_id": "doc_single_9",
+    "text": "聚类是一种无监督学习方法。 大学培养AI人才和开展前沿研究。 Transformer架构革新了自然语言处理领域。 强化学习通过奖励机制训练模型。 GPT系列模型展示了强大的语言生成能力。",
+    "source_path": "data/single_doc_9.txt",
+    "page_number": 1,
+    "title": "单块文档 9",
+    "order": 1,
+    "modality": "text"
+  },
+  {
+    "chunk_id": "single_chunk_10",
+    "doc_id": "doc_single_10",
+    "text": "美国在AI基础研究方面具有优势。 实验室是AI技术孵化的重要场所。 各国政府纷纷出台AI发展战略。 损失函数衡量模型预测的误差。 分类是监督学习中的经典任务。 科技公司在AI发展中扮演重要角色。 决策树提供了直观的决策规则。",
+    "source_path": "data/single_doc_10.txt",
+    "page_number": 1,
+    "title": "单块文档 10",
+    "order": 1,
+    "modality": "text"
+  },
+  {
+    "chunk_id": "single_chunk_11",
+    "doc_id": "doc_single_11",
+    "text": "人工智能是计算机科学的重要分支。 数据挖掘是从大量数据中提取有价值信息的过程。 梯度下降是最常用的优化算法之一。 支持向量机在高维空间中构建分类超平面。 在线学习允许模型实时更新。",
+    "source_path": "data/single_doc_11.txt",
+    "page_number": 1,
+    "title": "单块文档 11",
+    "order": 1,
+    "modality": "text"
+  },
+  {
+    "chunk_id": "single_chunk_12",
+    "doc_id": "doc_single_12",
+    "text": "GPT系列模型展示了强大的语言生成能力。 开源社区促进了AI技术的普及和发展。 损失函数衡量模型预测的误差。 监督学习需要标注数据进行训练。 循环神经网络适用于序列数据处理。 本体论为知识表示提供了形式化框架。 计算机视觉让机器能够识别和理解图像内容。 美国在AI基础研究方面具有优势。 日本在机器人领域有独特优势。 大学培养AI人才和开展前沿研究。 Transformer架构革新了自然语言处理领域。 知识图谱用于表示实体间的关系。 深度学习是机器学习的一种方法。",
+    "source_path": "data/single_doc_12.txt",
+    "page_number": 1,
+    "title": "单块文档 12",
+    "order": 1,
+    "modality": "text"
+  },
+  {
+    "chunk_id": "single_chunk_13",
+    "doc_id": "doc_single_13",
+    "text": "计算机视觉让机器能够识别和理解图像内容。 数据挖掘是从大量数据中提取有价值信息的过程。 损失函数衡量模型预测的误差。 长短期记忆网络解决了传统RNN的梯度消失问题。 反向传播算法用于计算梯度。 知识图谱用于表示实体间的关系。 回归用于预测连续值输出。 欧盟重视AI伦理和法规制定。 大模型是当前AI发展的主要趋势之一。 循环神经网络适用于序列数据处理。 人工智能是计算机科学的重要分支。 无监督学习发现数据中的潜在模式。 美国在AI基础研究方面具有优势。 半监督学习结合了标注和未标注数据。",
+    "source_path": "data/single_doc_13.txt",
+    "page_number": 1,
+    "title": "单块文档 13",
+    "order": 1,
+    "modality": "text"
+  },
+  {
+    "chunk_id": "single_chunk_14",
+    "doc_id": "doc_single_14",
+    "text": "迁移学习将在一个任务上学到的知识应用到另一个任务。 人工智能是计算机科学的重要分支。 日本在机器人领域有独特优势。 反向传播算法用于计算梯度。 无监督学习发现数据中的潜在模式。 各国政府纷纷出台AI发展战略。 在线学习允许模型实时更新。 卷积神经网络在图像处理中表现出色。 长短期记忆网络解决了传统RNN的梯度消失问题。 Transformer架构革新了自然语言处理领域。 大学培养AI人才和开展前沿研究。 开源社区促进了AI技术的普及和发展。 数据挖掘是从大量数据中提取有价值信息的过程。 监督学习需要标注数据进行训练。",
+    "source_path": "data/single_doc_14.txt",
+    "page_number": 1,
+    "title": "单块文档 14",
+    "order": 1,
+    "modality": "text"
+  },
+  {
+    "chunk_id": "single_chunk_15",
+    "doc_id": "doc_single_15",
+    "text": "无监督学习发现数据中的潜在模式。 半监督学习结合了标注和未标注数据。 梯度下降是最常用的优化算法之一。 循环神经网络适用于序列数据处理。 大模型是当前AI发展的主要趋势之一。 实验室是AI技术孵化的重要场所。",
+    "source_path": "data/single_doc_15.txt",
+    "page_number": 1,
+    "title": "单块文档 15",
+    "order": 1,
+    "modality": "text"
+  }
+]
