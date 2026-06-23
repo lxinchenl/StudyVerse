@@ -1,4 +1,4 @@
-from enum import StrEnum
+from app.compat import StrEnum
 from typing import Any
 
 from pydantic import BaseModel, Field
