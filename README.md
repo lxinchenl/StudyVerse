@@ -1,7 +1,7 @@
 # Personalized Learning Multi-Agent System
 
 个性化学习资源生成与学习多智能体系统。项目采用 FastAPI 后端、Next.js 前端、课程知识库/RAG、多智能体编排和可插拔大模型 Provider 设计。
-
+请访问http://120.27.131.220/体验
 ## Quick Start
 
 ### Backend
