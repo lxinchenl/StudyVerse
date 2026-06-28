@@ -7,7 +7,10 @@ export const DOC_TYPE_LABELS: Record<string, string> = {
   code: "代码"
 };
 
-export const API_BASE = process.env.NEXT_PUBLIC_API_BASE ?? "http://localhost:8000/api";
+/** Browser uses same-origin /api via nginx; SSR/build falls back to localhost. */
+export const API_BASE =
+  process.env.NEXT_PUBLIC_API_BASE ??
+  (typeof window !== "undefined" ? "/api" : "http://localhost:8000/api");
 
 export function fileDownloadUrl(fileUrl: string | undefined): string | null {
   if (!fileUrl) return null;

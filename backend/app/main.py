@@ -1,3 +1,16 @@
+def _patch_sqlite_for_chroma() -> None:
+    """python:3.10-slim ships sqlite3 < 3.35; Chroma needs a newer build."""
+    try:
+        __import__("pysqlite3")
+        import sys
+
+        sys.modules["sqlite3"] = sys.modules.pop("pysqlite3")
+    except ImportError:
+        pass
+
+
+_patch_sqlite_for_chroma()
+
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
@@ -20,4 +33,3 @@ def create_app() -> FastAPI:
 
 
 app = create_app()
-
