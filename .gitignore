@@ -20,6 +20,13 @@ data/generated_resources/
 data/kg/chroma/
 kg_rag_demo/
 
+# Server-local deployment config
+Dockerfile.backend
+Dockerfile.frontend
+docker-compose.yml
+deploy/nginx.conf
+.env.production.example
+
 # IDE / OS artifacts
 .DS_Store
 Thumbs.db
