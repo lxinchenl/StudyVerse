@@ -91,20 +91,20 @@ hermes config set auxiliary.vision.api_key <your-key>
 
 | 项目 | 值 |
 |------|-----|
-| API Key | `ark-43298c6d-41b5-4a04-bce0-b2c6ae918f2c-fed82` |
+| API Key | |
 | Base URL | `https://ark.cn-beijing.volces.com/api/v3` |
 | 模型 | `doubao-seed-2-0-mini-260428` |
 
 ### 设置方法
 
 ```bash
-export DOUBAO_API_KEY="ark-43298c6d-41b5-4a04-bce0-b2c6ae918f2c-fed82"
+export DOUBAO_API_KEY=
 ```
 
 或者写入 `~/.bashrc` 持久化：
 
 ```bash
-echo 'export DOUBAO_API_KEY="ark-43298c6d-41b5-4a04-bce0-b2c6ae918f2c-fed82"' >> ~/.bashrc
+echo 'export DOUBAO_API_KEY=' >> ~/.bashrc
 ```
 
 ### 使用方式
