@@ -1,11 +1,13 @@
 "use client";
 
 import Link from "next/link";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { CheckCircle2, Loader2, XCircle } from "lucide-react";
 
 import { submitPractice } from "@/lib/api";
+import { clearPracticeDraft, readPracticeDraft, savePracticeDraft } from "@/lib/practiceDrafts";
 import type { ExerciseSet } from "@/lib/types";
+import { QuestionMetaTags } from "./QuestionMetaTags";
 
 type ResultRow = {
   score: number;
@@ -34,6 +36,13 @@ export function ExercisePanel({
   const [totalScore, setTotalScore] = useState(0);
   const [results, setResults] = useState<Record<string, ResultRow>>({});
 
+  useEffect(() => {
+    setAnswers(readPracticeDraft(userId, exerciseSet.resourceId));
+    setResults({});
+    setSubmitted(false);
+    setTotalScore(0);
+  }, [exerciseSet.resourceId, userId]);
+
   async function handleSubmit() {
     if (loading) return;
     setLoading(true);
@@ -60,11 +69,20 @@ export function ExercisePanel({
     }
   }
 
+  function handleAnswerChange(questionId: string, value: string) {
+    setAnswers((prev) => {
+      const next = { ...prev, [questionId]: value };
+      savePracticeDraft(userId, exerciseSet.resourceId, next);
+      return next;
+    });
+  }
+
   function handleReset() {
     setAnswers({});
     setResults({});
     setSubmitted(false);
     setTotalScore(0);
+    clearPracticeDraft(userId, exerciseSet.resourceId);
   }
 
   return (
@@ -96,10 +114,10 @@ export function ExercisePanel({
         return (
           <div key={q.id} className="question-block">
             <div className="question-head">
-              <strong>
-                第 {index + 1} 题 · {q.difficulty}
-                {q.gradingType === "rubric" ? " · 开放题" : " · 标准答案"}
-              </strong>
+              <div className="question-title-row">
+                <strong>第 {index + 1} 题</strong>
+                <QuestionMetaTags difficulty={q.difficulty} gradingType={q.gradingType} />
+              </div>
               {statusLabel ? <span className="muted">{statusLabel}</span> : null}
               {submitted && result ? (
                 result.score >= 60 ? (
@@ -115,7 +133,7 @@ export function ExercisePanel({
               value={answers[q.id] ?? ""}
               disabled={submitted}
               placeholder="输入你的答案..."
-              onChange={(e) => setAnswers((prev) => ({ ...prev, [q.id]: e.target.value }))}
+              onChange={(e) => handleAnswerChange(q.id, e.target.value)}
             />
             {submitted && result ? (
               <div className="answer-reveal">
@@ -139,10 +157,15 @@ export function ExercisePanel({
       {exerciseSet.questions.length > 0 ? (
         <div style={{ display: "flex", gap: 10, marginTop: 12, alignItems: "center" }}>
           {!submitted ? (
-            <button type="button" className="btn-primary" onClick={handleSubmit} disabled={loading}>
-              {loading ? <Loader2 size={16} /> : null}
-              {loading ? "提交中..." : "提交答卷"}
-            </button>
+            <>
+              <button type="button" className="btn-primary" onClick={handleSubmit} disabled={loading}>
+                {loading ? <Loader2 size={16} /> : null}
+                {loading ? "提交中..." : "提交答卷"}
+              </button>
+              <button type="button" className="btn-secondary" onClick={handleReset}>
+                重置
+              </button>
+            </>
           ) : (
             <>
               <span className="muted">本次得分：{totalScore} 分</span>

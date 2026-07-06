@@ -7,10 +7,13 @@ import {
   ArrowLeft,
   BookOpen,
   Brain,
+  CalendarDays,
+  ChevronDown,
   ChevronRight,
   Clock,
   Code2,
   FileText,
+  ListChecks,
   PlayCircle,
   Sparkles
 } from "lucide-react";
@@ -42,11 +45,15 @@ function stripModuleTitle(title: string): string {
 function LearningModuleSection({
   module,
   index,
-  onOpenResource
+  onOpenResource,
+  expanded,
+  onToggle
 }: {
   module: LearningModule;
   index: number;
   onOpenResource: (resource: CourseResourceRef) => void;
+  expanded: boolean;
+  onToggle: () => void;
 }) {
   const resources = useMemo(
     () => [...module.resources].sort((a, b) => a.order - b.order),
@@ -55,28 +62,44 @@ function LearningModuleSection({
   const displayTitle = stripModuleTitle(module.title);
 
   return (
-    <section className={`learning-module-section learning-module-section--${module.status}`}>
-      <div className="learning-module-section-head">
-        <div className="learning-module-index">{String(index + 1).padStart(2, "0")}</div>
-        <div className="learning-module-head-main">
-          <div className="learning-module-head-row">
-            <h3>{displayTitle}</h3>
-            <span className={`learning-module-status learning-module-status--${module.status}`}>
-              {STATUS_LABELS[module.status] ?? module.status}
-            </span>
-          </div>
-          <p className="learning-module-objective">{module.objective}</p>
-          <div className="learning-module-meta-row">
-            <span>
-              <Clock size={14} /> 预计 {module.estimatedMinutes} 分钟
-            </span>
-            {module.chapterKey ? <span>章节 {module.chapterKey}</span> : null}
-            <span>{resources.length} 项资源</span>
+    <section
+      className={`learning-module-section learning-module-section--${module.status} ${
+        expanded ? "is-expanded" : "is-collapsed"
+      }`}
+    >
+      <span className={`learning-module-timeline-dot learning-module-timeline-dot--${module.status}`} aria-hidden />
+      <button type="button" className="learning-module-toggle" onClick={onToggle}>
+        <div className="learning-module-section-head">
+          <div className="learning-module-index">{String(index + 1).padStart(2, "0")}</div>
+          <div className="learning-module-head-main">
+            <div className="learning-module-head-row">
+              <h3>{displayTitle}</h3>
+              <span className={`learning-module-status learning-module-status--${module.status}`}>
+                {STATUS_LABELS[module.status] ?? module.status}
+              </span>
+            </div>
+            <p className="learning-module-objective">{module.objective}</p>
+            <div className="learning-module-meta-row">
+              <span>
+                <Clock size={14} /> 预计 {module.estimatedMinutes} 分钟
+              </span>
+              {module.chapterKey ? <span>章节 {module.chapterKey}</span> : null}
+              <span>{resources.length} 项资源</span>
+            </div>
+            <div className="learning-module-progress-pill">
+              <ListChecks size={13} />
+              <span>学习清单第 {index + 1} 讲</span>
+            </div>
           </div>
         </div>
-      </div>
+        <span className={`learning-module-toggle-icon ${expanded ? "open" : ""}`} aria-hidden>
+          <ChevronDown size={18} />
+        </span>
+      </button>
 
-      {resources.length > 0 ? (
+      {!expanded ? (
+        <p className="learning-module-collapsed-hint">点击上方标题展开本讲学习内容</p>
+      ) : resources.length > 0 ? (
         <div className="learning-module-track-wrap">
           <p className="learning-module-track-label">
             <Sparkles size={14} /> 按学习顺序展开
@@ -127,6 +150,7 @@ export default function LearningCoursePage() {
   const [course, setCourse] = useState<LearningCourseDetail | null>(null);
   const [error, setError] = useState("");
   const [activeResource, setActiveResource] = useState<CourseResourceRef | null>(null);
+  const [expandedModuleIds, setExpandedModuleIds] = useState<Set<string>>(new Set());
 
   useEffect(() => {
     if (!user || !courseId) return;
@@ -135,9 +159,41 @@ export default function LearningCoursePage() {
       .catch((e) => setError(e instanceof Error ? e.message : "加载失败"));
   }, [user, courseId]);
 
+  useEffect(() => {
+    if (!course) return;
+    const inProgress = course.modules.find((m) => m.status === "in_progress");
+    const fallback = course.modules[0];
+    const initial = inProgress?.id ?? fallback?.id;
+    setExpandedModuleIds(initial ? new Set([initial]) : new Set());
+  }, [course?.id]);
+
   const doneCount = course?.modules.filter((m) => m.status === "done").length ?? 0;
   const moduleCount = course?.modules.length ?? 0;
+  const totalMinutes = course?.modules.reduce((sum, mod) => sum + (mod.estimatedMinutes || 0), 0) ?? 0;
+  const totalResources =
+    course?.modules.reduce((sum, mod) => sum + (mod.resources?.length || 0), 0) ?? 0;
   const progressPct = moduleCount ? Math.round((doneCount / moduleCount) * 100) : 0;
+
+  const toggleModule = (moduleId: string) => {
+    setExpandedModuleIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(moduleId)) {
+        next.delete(moduleId);
+      } else {
+        next.add(moduleId);
+      }
+      return next;
+    });
+  };
+
+  const expandAll = () => {
+    if (!course) return;
+    setExpandedModuleIds(new Set(course.modules.map((m) => m.id)));
+  };
+
+  const collapseAll = () => {
+    setExpandedModuleIds(new Set());
+  };
 
   return (
     <AppShell title={course?.title ?? "定制课"} subtitle="按讲次顺序学习，点击资源卡片即可在弹窗中查看">
@@ -157,6 +213,16 @@ export default function LearningCoursePage() {
                 <p className="learning-course-hero-kicker">定制系统课</p>
                 <h2>{course.title}</h2>
                 <p className="learning-course-hero-summary">{course.summary || course.topic}</p>
+                <div className="learning-course-hero-tags">
+                  <span className="learning-course-tag">{course.topic}</span>
+                  <span className="learning-course-tag learning-course-tag--status">
+                    状态：{STATUS_LABELS[course.status] ?? course.status}
+                  </span>
+                  <span className="learning-course-tag learning-course-tag--date">
+                    <CalendarDays size={14} />
+                    创建于 {course.createdAt || "未知"}
+                  </span>
+                </div>
               </div>
               <div className="learning-course-hero-stats">
                 <div className="learning-course-stat">
@@ -166,6 +232,16 @@ export default function LearningCoursePage() {
                 <div className="learning-course-stat">
                   <span className="learning-course-stat-value">{progressPct}%</span>
                   <span className="learning-course-stat-label">进度</span>
+                </div>
+                <div className="learning-course-stat-grid">
+                  <div className="learning-course-stat-card">
+                    <span className="learning-course-stat-card-value">{totalResources}</span>
+                    <span className="learning-course-stat-card-label">资源总数</span>
+                  </div>
+                  <div className="learning-course-stat-card">
+                    <span className="learning-course-stat-card-value">{totalMinutes}</span>
+                    <span className="learning-course-stat-card-label">预计总时长(分钟)</span>
+                  </div>
                 </div>
                 <div className="learning-course-progress">
                   <div className="progress-bar">
@@ -178,13 +254,29 @@ export default function LearningCoursePage() {
               </div>
             </header>
 
-            <div className="learning-course-modules">
+            <section className="learning-course-modules-head">
+              <div>
+                <h3>学习讲次</h3>
+                <p>建议按顺序学习；每项资源都可点击进入弹窗查看详情。</p>
+              </div>
+              <div className="learning-course-modules-actions">
+                <button type="button" className="btn-secondary" onClick={expandAll}>
+                  展开全部
+                </button>
+                <button type="button" className="btn-secondary" onClick={collapseAll}>
+                  收起全部
+                </button>
+              </div>
+            </section>
+            <div className="learning-course-modules learning-course-modules--timeline">
               {course.modules.map((mod, index) => (
                 <LearningModuleSection
                   key={mod.id}
                   module={mod}
                   index={index}
                   onOpenResource={setActiveResource}
+                  expanded={expandedModuleIds.has(mod.id)}
+                  onToggle={() => toggleModule(mod.id)}
                 />
               ))}
             </div>

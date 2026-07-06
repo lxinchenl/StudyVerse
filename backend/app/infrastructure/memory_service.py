@@ -97,6 +97,40 @@ class FileMemoryService(MemoryService):
                 break
         return messages[-limit:]
 
+    def get_today_dialogue_context(
+        self,
+        user_id: str,
+        recent_turns: int | None = None,
+        max_chars: int | None = None,
+    ) -> list[dict[str, str]]:
+        data = self._load_conversation_day(user_id)
+        dialogue: list[dict[str, str]] = []
+        for row in data.get("messages", []):
+            if not isinstance(row, dict) or row.get("role") not in {"user", "assistant"}:
+                continue
+            content = str(row.get("content") or "").strip()
+            if not content:
+                continue
+            dialogue.append(
+                {
+                    "role": str(row.get("role")),
+                    "content": content,
+                    "time": str(row.get("time") or row.get("timestamp") or ""),
+                }
+            )
+        if recent_turns is not None and recent_turns > 0:
+            dialogue = dialogue[-recent_turns * 2 :]
+        if max_chars is not None and max_chars > 0:
+            total = 0
+            trimmed: list[dict[str, str]] = []
+            for row in reversed(dialogue):
+                total += len(row.get("content", ""))
+                if total > max_chars:
+                    break
+                trimmed.append(row)
+            return list(reversed(trimmed))
+        return dialogue
+
     def search_memory(self, user_id: str, query: str, limit: int = 5) -> list[dict[str, Any]]:
         mem_dir = self._user_dir(user_id) / "memory"
         hits: list[dict[str, Any]] = []
@@ -116,6 +150,35 @@ class FileMemoryService(MemoryService):
             "created_at": datetime.now(timezone.utc).isoformat(),
         }
         (mem_dir / f"{item_id}.json").write_text(json.dumps(item, ensure_ascii=False, indent=2), encoding="utf-8")
+
+    def get_explicit_memory_context(self, user_id: str, max_chars: int = 2100) -> list[dict[str, str]]:
+        mem_dir = self._user_dir(user_id) / "memory"
+        items: list[dict[str, Any]] = []
+        for file in sorted(mem_dir.glob("*.json")):
+            try:
+                item = json.loads(file.read_text(encoding="utf-8"))
+            except json.JSONDecodeError:
+                continue
+            if isinstance(item, dict) and item.get("content"):
+                items.append(item)
+
+        items.sort(key=lambda row: str(row.get("created_at") or ""))
+        remaining = max_chars
+        context: list[dict[str, str]] = []
+        for item in items:
+            content = " ".join(str(item.get("content") or "").strip().split())
+            if not content or remaining <= 0:
+                continue
+            snippet = content[:remaining]
+            context.append(
+                {
+                    "type": str(item.get("type") or "memory"),
+                    "content": snippet,
+                    "created_at": str(item.get("created_at") or ""),
+                }
+            )
+            remaining -= len(snippet)
+        return context
 
     def get_working_memory(self, user_id: str) -> dict[str, Any]:
         path = self._user_dir(user_id) / "working_memory.json"
@@ -148,9 +211,6 @@ class FileMemoryService(MemoryService):
             json.dumps({"planner_tasks": [], "traces": [], "react_steps": []}, ensure_ascii=False, indent=2),
             encoding="utf-8",
         )
-        mem_dir = self._user_dir(user_id) / "memory"
-        for file in mem_dir.glob("*.json"):
-            file.unlink(missing_ok=True)
 
     def _practice_attempts_path(self, user_id: str) -> Path:
         return self._user_dir(user_id) / "practice_attempts.json"

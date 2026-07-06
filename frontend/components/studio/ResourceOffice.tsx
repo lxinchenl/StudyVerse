@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { BookOpen, Loader2, Send, Sparkles, Zap } from "lucide-react";
 
 import type { ArchivistTrip } from "@/lib/pixel-office/archivist";
@@ -14,6 +14,12 @@ import {
   type InquiryFlowPhase,
 } from "./PixelOfficeCanvas";
 import { generateResourcesStream } from "@/lib/api";
+import {
+  consumeBackgroundCreatedResources,
+  setBackgroundResourceDraft,
+  startBackgroundResourceGeneration,
+  useBackgroundResourceOffice
+} from "@/lib/background-resource-office";
 import { ReActSteps } from "@/components/chat/ReActSteps";
 import type { GeneratedResource, ReactStep, ResourceType } from "@/lib/types";
 
@@ -64,6 +70,28 @@ export function ResourceOffice({
   const archivistAgentIdsRef = useRef<string[]>([]);
   /** 同一次 SSE 流内：inquiry 与 hub_close/done 顺序到达，用 ref 避免误关频道 */
   const inquiryPendingRef = useRef(false);
+  const backgroundOffice = useBackgroundResourceOffice(userId);
+
+  useEffect(() => {
+    setAgents(backgroundOffice.agents.length ? backgroundOffice.agents : defaultOfficeAgents());
+    setMessages(backgroundOffice.messages);
+    setHubOpen(backgroundOffice.hubOpen);
+    setTopic(backgroundOffice.topic);
+    setSelected(backgroundOffice.selected);
+    setRunning(backgroundOffice.running);
+    setAgentReactSteps(backgroundOffice.agentReactSteps);
+    setError(backgroundOffice.error);
+    setInquiry(backgroundOffice.inquiry);
+    setClarification(backgroundOffice.clarification);
+    setShowGenerate(backgroundOffice.showGenerate);
+  }, [backgroundOffice]);
+
+  useEffect(() => {
+    const created = consumeBackgroundCreatedResources(userId);
+    if (created.length > 0) {
+      onResourcesAdded(created);
+    }
+  }, [backgroundOffice.createdResources.length, onResourcesAdded, userId]);
 
   const bubbles = useMemo(() => {
     const map: Record<string, string> = {};
@@ -76,10 +104,12 @@ export function ResourceOffice({
   }, [messages]);
 
   const toggleType = useCallback((id: ResourceType) => {
-    setSelected((prev) =>
-      prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]
-    );
-  }, []);
+    setSelected((prev) => {
+      const next = prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id];
+      setBackgroundResourceDraft(userId, { selected: next });
+      return next;
+    });
+  }, [userId]);
 
   const streamHubMessage = useCallback(async (msg: HubMessage) => {
     const content = msg.content || "";
@@ -114,134 +144,16 @@ export function ResourceOffice({
   const runGeneration = useCallback(
     async (clarify?: string) => {
       if (!topic.trim() || selected.length === 0 || running) return;
-      setRunning(true);
-      setError("");
-      setShowGenerate(true);
+      setBackgroundResourceDraft(userId, { topic: topic.trim(), selected, showGenerate: true });
       if (!clarify) {
-        inquiryPendingRef.current = false;
-        setInquiry(null);
         setInquiryPhase(null);
-        setMessages([]);
-        setHubOpen(false);
-        setAgentReactSteps([]);
         setArchivistTrips([]);
         archivistAgentIdsRef.current = [];
         pendingResourcesRef.current = [];
-        setAgents(defaultOfficeAgents().map((a) => ({ ...a, status: "idle" as AgentStatus })));
       }
-
-      let streamInquiryPending = false;
-
-      try {
-        await generateResourcesStream(
-          userId,
-          topic.trim(),
-          selected,
-          (event) => {
-            if (event.type === "hub_open") {
-              setHubOpen(true);
-              setMessages([]);
-            } else if (event.type === "hub_close") {
-              if (!streamInquiryPending) {
-                setHubOpen(false);
-                setActiveSpeaker(null);
-              }
-              flushArchivistQueue();
-            } else if (event.type === "agent_status") {
-              const statusById = new Map(
-                event.agents.map((a) => [
-                  resolveOfficeCharacterId(a.id),
-                  a.status as AgentStatus,
-                ])
-              );
-              setAgents((prev) =>
-                prev.map((a) => ({
-                  ...a,
-                  status: statusById.get(a.id) ?? a.status,
-                }))
-              );
-            } else if (event.type === "hub") {
-              if (event.message.kind === "system") {
-                void streamHubMessage({ ...event.message, agent: "system", kind: "system" });
-                return;
-              }
-              const hubMsg = {
-                ...event.message,
-                agent: resolveOfficeCharacterId(event.message.agent),
-              };
-              void streamHubMessage(hubMsg);
-              setActiveSpeaker(hubMsg.agent);
-              window.setTimeout(() => setActiveSpeaker(null), 6000);
-            } else if (event.type === "inquiry_walk" || event.type === "inquiry") {
-              if (event.type === "inquiry") {
-                streamInquiryPending = true;
-                inquiryPendingRef.current = true;
-                setInquiry({
-                  inquiryId: event.inquiry_id,
-                  reason: event.reason,
-                  questions: event.questions,
-                });
-              }
-              setInquiryPhase("walk_to_carpet");
-            } else if (event.type === "agent_progress") {
-              setAgentReactSteps(
-                (event.react_steps ?? []).map((s) => ({
-                  step: s.step,
-                  thought: s.thought ?? "",
-                  action: s.action ?? "",
-                  expert: s.expert,
-                  observation: s.observation,
-                  status: s.status,
-                }))
-              );
-            } else if (event.type === "resource_stored") {
-              const r = event.resource;
-              pendingResourcesRef.current.push({
-                id: r.id,
-                type: r.type as GeneratedResource["type"],
-                title: r.title,
-                summary: r.summary,
-                content: r.content,
-                topic: r.topic,
-                createdAt: r.created_at,
-                playerUrl: r.player_url ?? undefined,
-                sceneCount: r.scene_count ?? undefined,
-              });
-              const producerId = resolveOfficeCharacterId(event.agent_id);
-              if (!archivistAgentIdsRef.current.includes(producerId)) {
-                archivistAgentIdsRef.current.push(producerId);
-              }
-            } else if (event.type === "done") {
-              const created = event.resources.map((r) => ({
-                id: r.id,
-                type: r.type as GeneratedResource["type"],
-                title: r.title,
-                summary: r.summary,
-                content: r.content,
-                topic: r.topic,
-                createdAt: r.created_at,
-                playerUrl: r.player_url ?? undefined,
-                sceneCount: r.scene_count ?? undefined,
-              }));
-              const merged =
-                created.length > 0 ? created : pendingResourcesRef.current;
-              if (merged.length > 0) onResourcesAdded(merged);
-              pendingResourcesRef.current = [];
-              if (!streamInquiryPending) {
-                setInquiry(null);
-                inquiryPendingRef.current = false;
-              }
-            }
-          },
-          { clarification: clarify }
-        );
-      } catch (e) {
-        setError(e instanceof Error ? e.message : "生成失败");
-      } finally {
-        setRunning(false);
-      }
+      await startBackgroundResourceGeneration(userId, clarify);
     },
-    [userId, topic, selected, running, onResourcesAdded, flushArchivistQueue, streamHubMessage]
+    [userId, topic, selected, running]
   );
 
   const handleInquiryArrived = useCallback(() => {
@@ -269,6 +181,7 @@ export function ResourceOffice({
     ]);
     const answer = clarification.trim();
     setClarification("");
+    setBackgroundResourceDraft(userId, { clarification: "" });
     inquiryPendingRef.current = false;
     setInquiryPhase("walk_home");
     runGeneration(answer);
@@ -311,7 +224,11 @@ export function ResourceOffice({
           <button
             type="button"
             className="studio-launch-btn office-toolbar-generate"
-            onClick={() => setShowGenerate((v) => !v)}
+            onClick={() => {
+              const next = !showGenerate;
+              setShowGenerate(next);
+              setBackgroundResourceDraft(userId, { showGenerate: next });
+            }}
           >
             <Zap size={16} />
             {showGenerate ? "收起派活面板" : "生成资源"}
@@ -329,7 +246,10 @@ export function ResourceOffice({
             inquiryPhase={inquiryPhase}
             inquiryData={inquiry}
             inquiryDraft={clarification}
-            onInquiryDraftChange={setClarification}
+            onInquiryDraftChange={(value) => {
+              setClarification(value);
+              setBackgroundResourceDraft(userId, { clarification: value });
+            }}
             onInquirySubmit={handleInquirySubmit}
             onInquiryArrived={handleInquiryArrived}
             onInquiryHome={handleInquiryHome}
@@ -346,7 +266,10 @@ export function ResourceOffice({
                 type="text"
                 className="studio-topic-input office-topic-input"
                 value={topic}
-                onChange={(e) => setTopic(e.target.value)}
+                onChange={(e) => {
+                  setTopic(e.target.value);
+                  setBackgroundResourceDraft(userId, { topic: e.target.value });
+                }}
                 placeholder="如：关系代数的选择运算"
                 disabled={running}
               />
@@ -410,7 +333,10 @@ export function ResourceOffice({
               <textarea
                 className="office-inquiry-input"
                 value={clarification}
-                onChange={(e) => setClarification(e.target.value)}
+                onChange={(e) => {
+                  setClarification(e.target.value);
+                  setBackgroundResourceDraft(userId, { clarification: e.target.value });
+                }}
                 placeholder="在此回复…"
                 disabled={running && inquiryPhase === "walk_home"}
                 rows={3}

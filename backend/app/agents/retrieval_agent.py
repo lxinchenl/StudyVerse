@@ -1,6 +1,7 @@
 from typing import Any
 
 from app.interfaces.contracts import BaseAgent, Retriever
+from app.services.material_context import merge_retrieval_search_result
 
 
 class RetrievalAgent(BaseAgent):
@@ -25,7 +26,7 @@ class RetrievalAgent(BaseAgent):
             course_id=context.get("course_id"),
             document_id=context.get("document_id"),
         )
-        context["retrieval"] = result
+        merge_retrieval_search_result(context, result)
         query_hint = "；".join(result.get("queries") or queries[:2])
         entity_hint = "、".join(result.get("entities") or entities[:3]) or "无"
         return {

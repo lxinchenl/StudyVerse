@@ -151,6 +151,8 @@ class ResourceStudioOrchestrator:
             "traces": [],
             "me": self.memory.get_me(user_id),
             "profile": self.memory.get_profile(user_id),
+            "explicit_memory": self.memory.get_explicit_memory_context(user_id),
+            "expert_dialogue": self.memory.get_today_dialogue_context(user_id, recent_turns=3),
         }
         if clarification and clarification.strip():
             context["user_clarification_provided"] = True

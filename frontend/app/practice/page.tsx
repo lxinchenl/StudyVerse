@@ -2,11 +2,13 @@
 
 import { Suspense, useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "next/navigation";
-import { CheckCircle2, XCircle } from "lucide-react";
+import { CheckCircle2, ChevronDown, XCircle } from "lucide-react";
 
+import { QuestionMetaTags } from "@/components/exercise/QuestionMetaTags";
 import { AppShell } from "@/components/layout/AppShell";
 import { CodeLabPanel } from "@/lib/lazy-components";
 import { useAuth } from "@/lib/auth";
+import { clearPracticeDraft, readPracticeDraft, savePracticeDraft } from "@/lib/practiceDrafts";
 import {
   fetchCodeLabSet,
   fetchExercises,
@@ -52,6 +54,7 @@ function PracticePageInner() {
   const [activeKind, setActiveKind] = useState<"all" | "exercise" | "code_lab">("all");
   const [exercisePage, setExercisePage] = useState(1);
   const [codeLabPage, setCodeLabPage] = useState(1);
+  const [bankCollapsed, setBankCollapsed] = useState(false);
   const PAGE_SIZE = 5;
 
   const selected = useMemo(
@@ -86,12 +89,12 @@ function PracticePageInner() {
     if (!resource) return;
 
     setError("");
-    setAnswers({});
     setResults({});
     setSubmitted(false);
     setTotalScore(0);
     setQuestions([]);
     setLabSet(null);
+    setAnswers(resource.kind === "exercise" ? readPracticeDraft(user.id, selectedResource) : {});
 
     if (resource.kind === "code_lab") {
       fetchCodeLabSet(user.id, selectedResource)
@@ -132,11 +135,23 @@ function PracticePageInner() {
     }
   }
 
+  function handleAnswerChange(questionId: string, value: string) {
+    if (!user || !selectedResource) return;
+    setAnswers((prev) => {
+      const next = { ...prev, [questionId]: value };
+      savePracticeDraft(user.id, selectedResource, next);
+      return next;
+    });
+  }
+
   function handleReset() {
     setAnswers({});
     setResults({});
     setSubmitted(false);
     setTotalScore(0);
+    if (user && selectedResource) {
+      clearPracticeDraft(user.id, selectedResource);
+    }
   }
 
   function renderResourceGroup(
@@ -175,7 +190,6 @@ function PracticePageInner() {
                   className={selectedResource === r.id ? "practice-resource-btn active" : "practice-resource-btn"}
                   onClick={() => {
                     setSelectedResource(r.id);
-                    handleReset();
                   }}
                 >
                   <span className="practice-resource-title">{r.title}</span>
@@ -234,40 +248,56 @@ function PracticePageInner() {
 
       <section className="card practice-bank">
         <div className="practice-bank-head">
-          <h3>题库分类</h3>
-          <div className="practice-filter">
-            <button
-              type="button"
-              className={activeKind === "all" ? "practice-filter-btn active" : "practice-filter-btn"}
-              onClick={() => setActiveKind("all")}
-            >
-              全部
-            </button>
-            <button
-              type="button"
-              className={activeKind === "exercise" ? "practice-filter-btn active" : "practice-filter-btn"}
-              onClick={() => setActiveKind("exercise")}
-            >
-              练习题
-            </button>
-            <button
-              type="button"
-              className={activeKind === "code_lab" ? "practice-filter-btn active" : "practice-filter-btn"}
-              onClick={() => setActiveKind("code_lab")}
-            >
-              实操题
-            </button>
-          </div>
+          <button
+            type="button"
+            className="practice-bank-toggle"
+            onClick={() => setBankCollapsed((v) => !v)}
+            aria-expanded={!bankCollapsed}
+          >
+            <span>题库分类</span>
+            <ChevronDown size={16} className={bankCollapsed ? "practice-bank-toggle-icon collapsed" : "practice-bank-toggle-icon"} />
+          </button>
+          {!bankCollapsed ? (
+            <div className="practice-filter">
+              <button
+                type="button"
+                className={activeKind === "all" ? "practice-filter-btn active" : "practice-filter-btn"}
+                onClick={() => setActiveKind("all")}
+              >
+                全部
+              </button>
+              <button
+                type="button"
+                className={activeKind === "exercise" ? "practice-filter-btn active" : "practice-filter-btn"}
+                onClick={() => setActiveKind("exercise")}
+              >
+                练习题
+              </button>
+              <button
+                type="button"
+                className={activeKind === "code_lab" ? "practice-filter-btn active" : "practice-filter-btn"}
+                onClick={() => setActiveKind("code_lab")}
+              >
+                实操题
+              </button>
+            </div>
+          ) : null}
         </div>
-        {resources.length === 0 ? (
-          <p className="muted">
-            暂无题目。可在学习对话中请求生成练习题或实操题，生成后会自动出现在此处。
-          </p>
+        {!bankCollapsed ? (
+          resources.length === 0 ? (
+            <p className="muted">
+              暂无题目。可在学习对话中请求生成练习题或实操题，生成后会自动出现在此处。
+            </p>
+          ) : (
+            <div className="practice-groups">
+              {renderResourceGroup("练习题库", "exercise", exerciseResources, "暂无练习题")}
+              {renderResourceGroup("实操题库", "code_lab", codeLabResources, "暂无实操题")}
+            </div>
+          )
         ) : (
-          <div className="practice-groups">
-            {renderResourceGroup("练习题库", "exercise", exerciseResources, "暂无练习题")}
-            {renderResourceGroup("实操题库", "code_lab", codeLabResources, "暂无实操题")}
-          </div>
+          <p className="practice-bank-collapsed-hint">
+            已收起 · 共 {resources.length} 个题库
+          </p>
         )}
       </section>
 
@@ -297,7 +327,7 @@ function PracticePageInner() {
                   answer={answers[q.id] ?? ""}
                   result={results[q.id]}
                   submitted={submitted}
-                  onChange={(v) => setAnswers((prev) => ({ ...prev, [q.id]: v }))}
+                  onChange={(v) => handleAnswerChange(q.id, v)}
                 />
               ))}
               <div className="practice-actions">
@@ -310,6 +340,11 @@ function PracticePageInner() {
                     重新作答
                   </button>
                 )}
+                {!submitted ? (
+                  <button type="button" className="btn-secondary" onClick={handleReset}>
+                    重置
+                  </button>
+                ) : null}
               </div>
             </>
           )}
@@ -337,10 +372,10 @@ function QuestionBlock({
   return (
     <div className="question-block">
       <div className="question-head">
-        <strong>
-          第 {index} 题 · {question.difficulty}
-          {question.gradingType === "rubric" ? " · 开放题" : " · 标准答案"}
-        </strong>
+        <div className="question-title-row">
+          <strong>第 {index} 题</strong>
+          <QuestionMetaTags difficulty={question.difficulty} gradingType={question.gradingType} />
+        </div>
         {submitted && result ? (
           result.score >= 60 ? <CheckCircle2 size={18} color="#059669" /> : <XCircle size={18} color="#dc2626" />
         ) : null}

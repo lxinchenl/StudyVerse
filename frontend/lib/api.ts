@@ -15,6 +15,7 @@ import type {
   LearningCourseDetail,
   LearningModule,
   CourseResourceRef,
+  MainAgentContext,
   UserProfile
 } from "./types";
 
@@ -459,6 +460,77 @@ function mapRetrieval(
   };
 }
 
+type ApiMainAgentContext = {
+  step?: number;
+  updated_at?: string;
+  message?: string;
+  prompt_text?: string;
+  material_summary?: string;
+  explicit_memory?: Array<{ type?: string; content?: string; created_at?: string }>;
+  session_dialogue?: Array<{ role?: string; content?: string; time?: string }>;
+  retrieval?: {
+    queries?: string[];
+    entities?: string[];
+    source_types?: string[];
+    merge_boundary?: MainAgentContext["retrieval"]["mergeBoundary"];
+    summarized?: MainAgentContext["retrieval"]["summarized"];
+    chunks?: Array<{
+      index?: number;
+      chunk_id?: string;
+      title?: string;
+      source_type?: string;
+      source?: string;
+      score?: number;
+      text?: string;
+    }>;
+  };
+  react_steps?: Array<{
+    step?: number;
+    thought?: string;
+    action?: string;
+    expert?: string;
+    tool?: string;
+    skill?: string;
+    observation?: string;
+    status?: string;
+  }>;
+};
+
+export function mapMainAgentContext(raw?: ApiMainAgentContext | null): MainAgentContext | null {
+  if (!raw) return null;
+  return {
+    step: raw.step ?? 1,
+    updatedAt: raw.updated_at ?? "",
+    message: raw.message ?? "",
+    promptText: raw.prompt_text ?? "",
+    materialSummary: raw.material_summary ?? "",
+    explicitMemory: raw.explicit_memory ?? [],
+    sessionDialogue: raw.session_dialogue ?? [],
+    retrieval: {
+      queries: raw.retrieval?.queries ?? [],
+      entities: raw.retrieval?.entities ?? [],
+      sourceTypes: raw.retrieval?.source_types ?? [],
+      mergeBoundary: raw.retrieval?.merge_boundary,
+      summarized: raw.retrieval?.summarized,
+      chunks: (raw.retrieval?.chunks ?? []).map((c, i) => ({
+        index: c.index ?? i + 1,
+        chunkId: c.chunk_id,
+        title: c.title,
+        sourceType: c.source_type,
+        source: c.source,
+        score: c.score,
+        text: c.text ?? ""
+      }))
+    },
+    reactSteps: mapReactSteps(raw.react_steps) ?? []
+  };
+}
+
+export async function fetchMainAgentContext(userId: string): Promise<MainAgentContext | null> {
+  const raw = await request<ApiMainAgentContext>("/chat/main-context", userId);
+  return mapMainAgentContext(raw);
+}
+
 type ApiCourseProposalCard = {
   kind?: string;
   status?: string;
@@ -727,6 +799,7 @@ export type ChatStreamEvent =
       }>;
       code_lab_sets?: Parameters<typeof mapCodeLabSets>[0];
       course_proposal_card?: ApiCourseProposalCard;
+      main_context?: ApiMainAgentContext;
     }
   | {
       type: "done";

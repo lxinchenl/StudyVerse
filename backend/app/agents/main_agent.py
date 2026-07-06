@@ -13,9 +13,11 @@ from app.interfaces.contracts import BaseAgent, LLMProvider, MemoryService
 from app.infrastructure.profile_tools import format_profile_memory_digest
 from app.services.material_context import (
     apply_document_read,
+    clear_material_context,
     ensure_material_basis,
     expert_requires_material,
     material_basis_summary,
+    maybe_summarize_materials,
     preload_material_context,
 )
 
@@ -25,7 +27,7 @@ _ME_TOOL_PARAMS = frozenset({"action", "updates", "remove_keys", "rewrite"})
 _REACT_SYSTEM = """你是数据库课程学习助手的主 Agent，采用 ReAct：每轮先思考，再选一个 action，看到 Observation 后可继续下一轮。
 
 可用 action：
-1) reply — 直接回复用户（寒暄/无需查资料）
+1) reply — 直接回复用户（无需查资料）
    {"thought":"...","action":"reply","reply":"..."}
 2) call_expert — 调用一名专家（可多次、分多轮）
    {"thought":"...","action":"call_expert","expert":"retrieval-agent","retrieval":{"queries":["改写检索词"],"entities":["图谱实体"]}}
@@ -39,6 +41,7 @@ _REACT_SYSTEM = """你是数据库课程学习助手的主 Agent，采用 ReAct�
       先 call_tool course-catalog-list input:{} 查看章节目录与 material_id
       再 call_tool course-document-read input:{"chapter_key":"ch2"} 或 {"material_id":"..."}
    路由建议：章节/导图/本章总结 → catalog + document-read；单个知识点问答 → retrieval-agent
+   若你判断“当前话题与已加载课程资料无关”，必须先 call_tool material-context-clear 清空资料，再重新检索/读文档
    思维导图/讲解视频/笔记/实操：有资料后 call_expert 对应专家；禁止跳过资料获取直接 call_skill
    练习题流程：
    - 先 call_expert exercise-agent exercise: {"mode":"search","topic":"..."}
@@ -58,6 +61,9 @@ _REACT_SYSTEM = """你是数据库课程学习助手的主 Agent，采用 ReAct�
    {"thought":"...","action":"finish"}
 4) call_tool — 调用下方「可用工具 id」中的原子工具
    {"thought":"...","action":"call_tool","tool":"工具 id","input":{}}
+   资料上下文清理规则（必须执行）：
+   - 当用户切换到与当前资料无关的话题，或不再继续当前加载资料的知识点时，优先调用 material-context-clear
+   - material-context-clear 不只用于检索前；凡是旧资料可能干扰当前回答，都应先清理
    用户画像维护规则（必须执行）：
    - 当用户明确提供了“课程/目标/近期主题/薄弱点”等信息，且与当前画像不一致或画像为空时，优先调用 user-profile-update 更新画像
    - 可先调用 user-profile-gather 汇总记忆信号，再调用 user-profile-update 落盘
@@ -77,12 +83,11 @@ _REACT_SYSTEM = """你是数据库课程学习助手的主 Agent，采用 ReAct�
 
 只输出一个 JSON 对象，不要其它文字。"""
 
-_SUMMARIZE_SYSTEM = """你是数据库课程学习助手。必须严格依据「参考资料」回答，不得编造。
+_SUMMARIZE_SYSTEM = """你是学习助手。当用户询问你详细知识点时必须严格依据「参考资料」回答，不得编造。
 规则：
-1. 只能使用参考资料中明确写出的内容
-2. 若资料未提及，必须明确说「资料中未找到相关信息」
-3. 禁止虚构页码、章节号、规范条文、评分标准
-4. 回答时标注引用的资料编号，如【资料1】"""
+1. 若资料未提及，必须明确说「资料中未找到相关信息」，然后依据你的知识回答
+2. 禁止虚构页码、章节号、规范条文、评分标准
+"""
 
 
 async def _emit(context: dict[str, Any], event: dict[str, Any]) -> None:
@@ -227,6 +232,10 @@ class MainAgent(BaseAgent):
                 expert = experts[expert_name]
                 result = await expert.run(context)
                 observation = result.get("trace", {}).get("summary") or "专家执行完成"
+                if expert_name == "retrieval-agent":
+                    summarized = await maybe_summarize_materials(context, self.llm)
+                    if summarized:
+                        observation = f"{observation}；资料过长已自动摘要到 5000 字内"
                 step["observation"] = observation
                 step["status"] = "done"
                 context["traces"].append(result["trace"])
@@ -249,9 +258,20 @@ class MainAgent(BaseAgent):
                     result = await self.invoke_tool(tool_id, context=context, **tool_input)
                     if tool_id == "course-document-read" and isinstance(result, dict):
                         apply_document_read(context, result)
+                        summarized = await maybe_summarize_materials(context, self.llm)
                         step["observation"] = str(result.get("summary") or "文档阅读完成")[:240]
+                        if summarized:
+                            step["observation"] = f"{step['observation']}；资料过长已自动摘要到 5000 字内"
                     elif tool_id == "course-catalog-list" and isinstance(result, dict):
                         step["observation"] = str(result.get("summary") or "目录加载完成")[:240]
+                    elif tool_id == "material-context-clear":
+                        cleared = clear_material_context(context)
+                        obs = (
+                            str(result.get("summary") or "")[:200]
+                            if isinstance(result, dict)
+                            else ""
+                        )
+                        step["observation"] = obs or f"已清空当前已加载资料（{cleared} 条）"
                     elif tool_id == "user-profile-gather" and isinstance(result, dict):
                         context["profile_gather"] = result
                         step["observation"] = str(result.get("summary") or "画像记忆已整合")[:240]
@@ -410,6 +430,18 @@ class MainAgent(BaseAgent):
             f"当前是第 {step_idx} 轮 ReAct。",
             material_basis_summary(context, self.memory),
         ]
+        explicit_memory = context.get("explicit_memory") or []
+        if explicit_memory:
+            lines.append("\n【显式长期记忆 memory】")
+            for item in explicit_memory:
+                lines.append(f"- [{item.get('type', 'memory')}] {item.get('content', '')}")
+        session_dialogue = context.get("session_dialogue") or []
+        if session_dialogue:
+            lines.append("\n【今日会话上下文（仅用户发言和助手最终回复，不含 Thought/Observation/工具输出）】")
+            for row in session_dialogue:
+                role = "用户" if row.get("role") == "user" else "助手"
+                time = f"[{row.get('time')}] " if row.get("time") else ""
+                lines.append(f"{time}{role}: {row.get('content', '')}")
         if context.get("profile_gather"):
             lines.append(
                 format_profile_memory_digest(
@@ -563,6 +595,31 @@ class MainAgent(BaseAgent):
             await _emit_progress(context)
             return f"定制课生成失败：{exc}"
 
+    def _format_recent_dialogue(self, context: dict[str, Any], recent_turns: int = 5) -> str:
+        dialogue = context.get("session_dialogue") or []
+        if not dialogue and context.get("user_id"):
+            dialogue = self.memory.get_today_dialogue_context(
+                str(context["user_id"]),
+                recent_turns=recent_turns,
+            )
+        elif recent_turns > 0:
+            dialogue = dialogue[-recent_turns * 2 :]
+
+        if not dialogue:
+            return ""
+
+        lines = ["【近 5 轮对话（仅用户发言和助手最终回复）】"]
+        for row in dialogue:
+            if not isinstance(row, dict):
+                continue
+            content = str(row.get("content") or "").strip()
+            if not content:
+                continue
+            role = "用户" if row.get("role") == "user" else "助手"
+            time = f"[{row.get('time')}] " if row.get("time") else ""
+            lines.append(f"{time}{role}: {content}")
+        return "\n".join(lines)
+
     async def summarize(self, context: dict[str, Any]) -> str:
         retrieval = context.get("retrieval", {})
         chunks = retrieval.get("chunks", [])
@@ -576,11 +633,15 @@ class MainAgent(BaseAgent):
             )
 
         refs: list[str] = []
-        for i, chunk in enumerate(chunks[:5], 1):
+        for i, chunk in enumerate(chunks, 1):
             text = (chunk.get("text") or "").strip()
             title = chunk.get("title") or chunk.get("chunk_id") or f"资料{i}"
             source = chunk.get("source") or ""
-            refs.append(f"【资料{i}】《{title}》{f' ({source})' if source else ''}\n{text[:1800]}")
+            source_type = chunk.get("source_type") or ""
+            type_note = f" [{source_type}]" if source_type else ""
+            refs.append(
+                f"【资料{i}】《{title}》{type_note}{f' ({source})' if source else ''}\n{text}"
+            )
 
         kg_note = ""
         if kg_lines:
@@ -588,13 +649,23 @@ class MainAgent(BaseAgent):
                 f"- {r.get('source')} --{r.get('relation')}--> {r.get('target')}" for r in kg_lines
             )
 
+        me = context.get("me") or self.memory.get_me(str(context.get("user_id") or ""))
+        me_note = str(me).strip()
         system = _SUMMARIZE_SYSTEM
-        prompt = (
-            f"参考资料：\n\n" + "\n\n".join(refs) + "\n\n"
-            + (f"{kg_note}\n\n" if kg_note else "")
-            + f"用户问题：{context['message']}\n\n"
-            "请基于以上资料回答。若无相关内容，如实说明，不要猜测。"
-        )
+        if me_note:
+            system = f"{system}\n\n【助手人设 me】\n{me_note}"
+
+        dialogue_note = self._format_recent_dialogue(context, recent_turns=5)
+        prompt_parts = [
+            "参考资料：\n\n" + "\n\n".join(refs),
+        ]
+        if kg_note:
+            prompt_parts.append(kg_note)
+        if dialogue_note:
+            prompt_parts.append(dialogue_note)
+        prompt_parts.append(f"当前用户问题：{context['message']}")
+        prompt_parts.append("请结合近几轮对话语境与参考资料回答。")
+        prompt = "\n\n".join(prompt_parts)
         return await self.llm.complete(prompt, system=system)
 
     async def _direct_reply(self, message: str, profile: dict[str, Any], me: dict[str, Any]) -> str:

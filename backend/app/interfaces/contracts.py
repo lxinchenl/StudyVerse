@@ -69,11 +69,24 @@ class MemoryService(ABC):
         ...
 
     @abstractmethod
+    def get_today_dialogue_context(
+        self,
+        user_id: str,
+        recent_turns: int | None = None,
+        max_chars: int | None = None,
+    ) -> list[dict[str, str]]:
+        ...
+
+    @abstractmethod
     def search_memory(self, user_id: str, query: str, limit: int = 5) -> list[dict[str, Any]]:
         ...
 
     @abstractmethod
     def add_memory(self, user_id: str, content: str, *, memory_type: str = "event") -> None:
+        ...
+
+    @abstractmethod
+    def get_explicit_memory_context(self, user_id: str, max_chars: int = 2100) -> list[dict[str, str]]:
         ...
 
     @abstractmethod

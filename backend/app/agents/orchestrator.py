@@ -132,6 +132,9 @@ class AgentOrchestrator:
             "expert_outputs": [],
             "traces": [],
             "me": self.memory.get_me(user_id),
+            "explicit_memory": self.memory.get_explicit_memory_context(user_id),
+            "session_dialogue": self.memory.get_today_dialogue_context(user_id, max_chars=10000),
+            "expert_dialogue": self.memory.get_today_dialogue_context(user_id, recent_turns=3),
             "course_workflow_action": course_workflow_action,
         }
         if course_proposal is not None:

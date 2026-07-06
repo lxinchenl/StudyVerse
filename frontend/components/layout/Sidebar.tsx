@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 
+import { TypingAnimation } from "@/components/ui/typing-animation";
 import { useAuth } from "@/lib/auth";
 
 const NAV = [
@@ -11,13 +12,14 @@ const NAV = [
   { href: "/learn", label: "对话" },
   { href: "/path", label: "路径" },
   { href: "/practice", label: "练习" },
-  { href: "/resources", label: "资源" }
+  { href: "/resources", label: "资源" },
+  { href: "/settings", label: "设置" }
 ];
 
 export function Sidebar() {
   const pathname = usePathname();
   const router = useRouter();
-  const { user, logout, memoryPath } = useAuth();
+  const { user, logout } = useAuth();
 
   if (pathname === "/login") return null;
 
@@ -25,8 +27,15 @@ export function Sidebar() {
     <aside className="sidebar">
       <div className="sidebar-brand">
         <div>
-          <strong>学习平台</strong>
-          <span>Learning Dashboard</span>
+          <TypingAnimation
+            text="Study Verse"
+            duration={120}
+            deleteDuration={70}
+            holdDuration={900}
+            loop
+            className="font-extrabold leading-none tracking-[-0.02em]"
+            style={{ fontSize: "3.2rem" }}
+          />
         </div>
       </div>
 
@@ -57,9 +66,6 @@ export function Sidebar() {
       <div className="sidebar-footer">
         {user ? (
           <>
-            <span className="memory-path" title={memoryPath("memory")}>
-              memory: users/{user.id}/
-            </span>
             <button
               type="button"
               className="logout-btn"

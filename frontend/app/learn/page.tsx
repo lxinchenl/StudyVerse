@@ -5,6 +5,7 @@ import { Eraser, MessageSquare, Trash2 } from "lucide-react";
 
 import { ChatDiagnostics } from "@/components/chat/ChatDiagnostics";
 import { CourseProposalCard, proposalCardToApi } from "@/components/chat/CourseProposalCard";
+import { MainAgentContextModal } from "@/components/chat/MainAgentContextModal";
 import { ReActSteps } from "@/components/chat/ReActSteps";
 import { ExplainerVideoPlayer } from "@/components/explainer/ExplainerVideoPlayer";
 import { AppShell } from "@/components/layout/AppShell";
@@ -19,16 +20,18 @@ import {
 } from "@/lib/lazy-components";
 import { useAuth } from "@/lib/auth";
 import {
-  clearChatHistory,
-  clearShortTermMemory,
-  fetchChatHistory,
-  fetchLLMConfig,
-  fetchProfile,
   mapCourseProposalCard,
-  sendChatStream,
   uploadUserFile,
   type ChatStreamEvent
 } from "@/lib/api";
+import {
+  clearBackgroundChat,
+  clearBackgroundShortTermMemory,
+  initializeBackgroundChat,
+  refreshMainAgentContext,
+  startBackgroundChat,
+  useBackgroundChat
+} from "@/lib/background-chat";
 import { resolveModelLabel } from "@/lib/llm-models";
 import type { ChatMessage, CourseProposalCard as CourseProposalCardType, UserProfile } from "@/lib/types";
 
@@ -131,22 +134,37 @@ export default function LearnPage() {
   const [currentModelLabel, setCurrentModelLabel] = useState("");
   const [fileUploading, setFileUploading] = useState(false);
   const [uploadNotice, setUploadNotice] = useState("");
+  const [contextModalOpen, setContextModalOpen] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const backgroundChat = useBackgroundChat(user?.id);
 
   useEffect(() => {
     if (!user) return;
-    Promise.all([fetchChatHistory(user.id), fetchProfile(user.id), fetchLLMConfig()])
-      .then(([history, prof, llm]) => {
-        setMessages(history);
-        setProfile(prof);
-        setCurrentModelLabel(resolveModelLabel(llm.model, llm.provider));
-      })
-      .catch((e) => setError(e instanceof Error ? e.message : "加载失败"));
+    void initializeBackgroundChat(user.id);
   }, [user]);
+
+  useEffect(() => {
+    if (!user) return;
+    setMessages(backgroundChat.messages);
+    setProfile(backgroundChat.profile);
+    setCurrentModelLabel(backgroundChat.currentModelLabel);
+    setLoading(backgroundChat.loading || backgroundChat.bootstrapping);
+    setError(backgroundChat.error);
+  }, [backgroundChat, user]);
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages, loading]);
+
+  useEffect(() => {
+    if (!user || !contextModalOpen) return;
+    void refreshMainAgentContext(user.id);
+  }, [user, contextModalOpen]);
+
+  async function handleRefreshMainContext() {
+    if (!user) return;
+    await refreshMainAgentContext(user.id);
+  }
 
   function applyStreamEvent(pendingId: string, event: ChatStreamEvent) {
     if (event.type === "status") {
@@ -346,8 +364,7 @@ export default function LearnPage() {
     if (!window.confirm("确定清空当前对话记录？界面与已保存的对话历史将被删除，资源库不受影响。")) return;
     setError("");
     try {
-      await clearChatHistory(user.id);
-      setMessages([]);
+      await clearBackgroundChat(user.id);
     } catch (e) {
       setError(e instanceof Error ? e.message : "清空对话失败");
     }
@@ -364,7 +381,7 @@ export default function LearnPage() {
     }
     setError("");
     try {
-      await clearShortTermMemory(user.id);
+      await clearBackgroundShortTermMemory(user.id);
     } catch (e) {
       setError(e instanceof Error ? e.message : "清空记忆失败");
     }
@@ -374,56 +391,30 @@ export default function LearnPage() {
     if (!user || loading) return;
 
     const label = action === "confirm" ? "确认生成定制系统课" : "取消定制系统课";
-    const pendingId = `pending-${Date.now()}`;
-    const userMsg: ChatMessage = {
-      id: `user-${Date.now()}`,
-      role: "user",
-      content: label,
-      timestamp: nowLabel()
-    };
-    const pendingMsg: ChatMessage = {
-      id: pendingId,
-      role: "assistant",
-      content: "",
-      timestamp: nowLabel(),
-      reactSteps: [],
-      streamStatus: action === "confirm" ? "正在生成定制系统课…" : "处理中…"
-    };
-
-    setMessages((prev) =>
-      prev.map((m) =>
-        m.courseProposalCard?.kind === "course_proposal" &&
-        m.courseProposalCard.status === "pending" &&
-        m.courseProposalCard.courseTitle === card.courseTitle
-          ? {
-              ...m,
-              courseProposalCard: {
-                ...m.courseProposalCard,
-                status: action === "confirm" ? ("confirmed" as const) : ("cancelled" as const)
-              }
-            }
-          : m
-      ).concat(userMsg, pendingMsg)
-    );
     setError("");
-    setLoading(true);
 
-    try {
-      await sendChatStream(
-        user.id,
-        label,
-        (event) => applyStreamEvent(pendingId, event),
-        {
-          courseWorkflowAction: action,
-          courseProposal: proposalCardToApi(card)
-        }
-      );
-    } catch (e) {
-      setMessages((prev) => prev.filter((m) => m.id !== pendingId && m.id !== userMsg.id));
-      setError(e instanceof Error ? e.message : "操作失败");
-    } finally {
-      setLoading(false);
-    }
+    await startBackgroundChat(
+      user.id,
+      label,
+      {
+        courseWorkflowAction: action,
+        courseProposal: proposalCardToApi(card)
+      },
+      (prev) =>
+        prev.map((m) =>
+          m.courseProposalCard?.kind === "course_proposal" &&
+          m.courseProposalCard.status === "pending" &&
+          m.courseProposalCard.courseTitle === card.courseTitle
+            ? {
+                ...m,
+                courseProposalCard: {
+                  ...m.courseProposalCard,
+                  status: action === "confirm" ? ("confirmed" as const) : ("cancelled" as const)
+                }
+              }
+            : m
+        )
+    );
   }
 
   async function handleSend(overrideText?: string) {
@@ -448,20 +439,7 @@ export default function LearnPage() {
 
     setInput("");
     setError("");
-    setLoading(true);
-    setMessages((prev) => [...prev, userMsg, pendingMsg]);
-
-    try {
-      await sendChatStream(user.id, text, (event) => {
-        applyStreamEvent(pendingId, event);
-      });
-    } catch (e) {
-      setMessages((prev) => prev.filter((m) => m.id !== pendingId && m.id !== userMsg.id));
-      setInput(text);
-      setError(e instanceof Error ? e.message : "发送失败");
-    } finally {
-      setLoading(false);
-    }
+    await startBackgroundChat(user.id, text);
   }
 
   async function handleFileSelect(files: FileList) {
@@ -489,7 +467,7 @@ export default function LearnPage() {
     <AppShell
       fillHeight
       title="多 Agent 学习"
-      subtitle={`当前用户 ${user?.name} · 主 Agent ReAct 实时推理流`}
+      subtitle={`当前用户 ${user?.name}`}
     >
       <div className="learn-page">
         {error ? <p className="muted learn-page-error">{error}</p> : null}
@@ -497,7 +475,15 @@ export default function LearnPage() {
         <div className="chat-panel">
           <div className="chat-toolbar">
             <div className="chat-toolbar-left">
-              <MessageSquare size={16} className="chat-toolbar-icon" />
+              <button
+                type="button"
+                className={`chat-toolbar-icon-btn${contextModalOpen ? " is-open" : ""}${loading ? " is-live" : ""}`}
+                onClick={() => setContextModalOpen(true)}
+                aria-label="查看主 Agent 上下文"
+                title="查看主 Agent 完整上下文"
+              >
+                <MessageSquare size={16} />
+              </button>
               <span className="chat-toolbar-title">多 Agent 对话</span>
               {currentModelLabel ? (
                 <span className="chat-model-badge">{currentModelLabel}</span>
@@ -660,6 +646,14 @@ export default function LearnPage() {
         </aside>
         </div>
       </div>
+
+      <MainAgentContextModal
+        open={contextModalOpen}
+        loading={loading}
+        context={backgroundChat.mainAgentContext}
+        onClose={() => setContextModalOpen(false)}
+        onRefresh={() => void handleRefreshMainContext()}
+      />
     </AppShell>
   );
 }

@@ -88,6 +88,42 @@ export interface ReactStep {
   codeLab?: { mode?: string; topic?: string };
 }
 
+export interface MainAgentContext {
+  step: number;
+  updatedAt: string;
+  message: string;
+  promptText: string;
+  materialSummary: string;
+  explicitMemory: Array<{ type?: string; content?: string; created_at?: string }>;
+  sessionDialogue: Array<{ role?: string; content?: string; time?: string }>;
+  retrieval: {
+    queries: string[];
+    entities: string[];
+    sourceTypes: string[];
+    mergeBoundary?: {
+      search_chunks?: number;
+      document_chunks?: number;
+      max_search_chunks?: number;
+      max_document_chunks?: number;
+    };
+    summarized?: {
+      trigger_chars?: number;
+      target_chars?: number;
+      agent?: string;
+    };
+    chunks: Array<{
+      index: number;
+      chunkId?: string;
+      title?: string;
+      sourceType?: string;
+      source?: string;
+      score?: number;
+      text: string;
+    }>;
+  };
+  reactSteps: ReactStep[];
+}
+
 export interface MindmapResource {
   resourceId: string;
   title: string;

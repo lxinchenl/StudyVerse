@@ -1,0 +1,9 @@
+{
+  "id": "material-context-clear",
+  "name": "Material Context Clear",
+  "handler": "app.tools.handlers.material_context_tools:clear_loaded_material_context",
+  "context_keys": ["retrieval"],
+  "params": {
+    "retrieval": "当前会话中已加载的课程资料上下文（由系统注入）"
+  }
+}

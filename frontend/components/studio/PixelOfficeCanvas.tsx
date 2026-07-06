@@ -60,6 +60,28 @@ interface CharacterPose {
   walkFrame?: number;
 }
 
+function drawRoundRect(
+  ctx: CanvasRenderingContext2D,
+  x: number,
+  y: number,
+  width: number,
+  height: number,
+  radius: number
+) {
+  const r = Math.min(radius, width / 2, height / 2);
+  ctx.beginPath();
+  ctx.moveTo(x + r, y);
+  ctx.lineTo(x + width - r, y);
+  ctx.quadraticCurveTo(x + width, y, x + width, y + r);
+  ctx.lineTo(x + width, y + height - r);
+  ctx.quadraticCurveTo(x + width, y + height, x + width - r, y + height);
+  ctx.lineTo(x + r, y + height);
+  ctx.quadraticCurveTo(x, y + height, x, y + height - r);
+  ctx.lineTo(x, y + r);
+  ctx.quadraticCurveTo(x, y, x + r, y);
+  ctx.closePath();
+}
+
 function PixelOfficeCanvasInner({
   agents,
   bubbles,
@@ -386,10 +408,23 @@ function PixelOfficeCanvasInner({
           pose.walkFrame
         );
 
-        ctx!.fillStyle = agent.status === "inactive" ? "#86909c" : "#1d2129";
         ctx!.font = "600 10px sans-serif";
         ctx!.textAlign = "center";
-        ctx!.fillText(meta.shortName, cx, cy + 14);
+        ctx!.textBaseline = "middle";
+        const label = meta.shortName;
+        const metrics = ctx!.measureText(label);
+        const labelW = Math.ceil(metrics.width) + 10;
+        const labelH = 16;
+        const labelX = cx - labelW / 2;
+        const labelY = cy + 6;
+        drawRoundRect(ctx!, labelX, labelY, labelW, labelH, 6);
+        ctx!.fillStyle = "rgba(255, 255, 255, 0.92)";
+        ctx!.fill();
+        ctx!.strokeStyle = agent.status === "inactive" ? "rgba(134, 144, 156, 0.35)" : "rgba(29, 33, 41, 0.14)";
+        ctx!.lineWidth = 1;
+        ctx!.stroke();
+        ctx!.fillStyle = agent.status === "inactive" ? "#667085" : "#1d2129";
+        ctx!.fillText(label, cx, labelY + labelH / 2);
       }
 
       updateSpeechBubbles(map, mapAgents);

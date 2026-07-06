@@ -418,6 +418,18 @@ class StudioHubSession:
             material_basis_summary(context, self.memory),
             f"这是你第 {state.turns} 次发言（上限 {MAX_TURNS_PER_AGENT}）。",
         ]
+        explicit_memory = context.get("explicit_memory") or []
+        if explicit_memory:
+            lines.append("\n显式长期记忆 memory：")
+            for item in explicit_memory:
+                lines.append(f"- [{item.get('type', 'memory')}] {item.get('content', '')}")
+        expert_dialogue = context.get("expert_dialogue") or []
+        if expert_dialogue:
+            lines.append("\n近期会话上下文（近 3 轮，仅用户发言和助手最终回复）：")
+            for row in expert_dialogue:
+                role = "用户" if row.get("role") == "user" else "助手"
+                time = f"[{row.get('time')}] " if row.get("time") else ""
+                lines.append(f"{time}{role}: {row.get('content', '')}")
         if state.observations:
             lines.append("\n你本轮收到的 Observation：")
             for obs in state.observations[-8:]:
@@ -629,6 +641,8 @@ class StudioHubSession:
         except Exception as exc:
             await hub(emit, agent_id, f"生成失败：{exc}", self.ts_fn(), kind="error")
             await set_agent(agents, agent_id, "done", emit)
+            if agent_id == "code-lab-agent":
+                raise RuntimeError(f"实操案例生成失败：{exc}") from exc
             return None
 
     async def _force_generate(

@@ -8,6 +8,7 @@ from uuid import uuid4
 from fastapi import APIRouter, Depends, File, HTTPException, Query, UploadFile
 from fastapi.responses import FileResponse, StreamingResponse
 
+from app.agents.chat_stream import pack_main_agent_context
 from app.agents.orchestrator import AgentOrchestrator
 from app.core.config import get_settings
 from app.core.http_utils import inline_content_disposition
@@ -65,6 +66,7 @@ from app.domain.schemas import (
     LLMTestResponse,
 )
 from app.services.app_services import profile_to_out
+from app.services.material_context import preload_material_context
 from app.services.chat_store import (
     chat_message_out_from_record,
     pack_course_proposal_card,
@@ -324,6 +326,28 @@ async def clear_chat_history(user_id: str = Depends(require_user_id)) -> dict[st
 async def clear_short_term_memory(user_id: str = Depends(require_user_id)) -> dict[str, str]:
     get_memory_service().clear_short_term_memory(user_id)
     return {"status": "ok"}
+
+
+@router.get("/chat/main-context")
+async def chat_main_context(
+    user_id: str = Depends(require_user_id),
+    course_id: str | None = Query(default=None),
+) -> dict[str, Any]:
+    memory = get_memory_service()
+    resolved_course_id = _resolve_course_id(user_id, course_id)
+    context: dict[str, Any] = {
+        "user_id": user_id,
+        "message": "(当前无进行中的 ReAct 轮次)",
+        "course_id": resolved_course_id,
+        "profile": memory.get_profile(user_id),
+        "me": memory.get_me(user_id),
+        "explicit_memory": memory.get_explicit_memory_context(user_id),
+        "session_dialogue": memory.get_today_dialogue_context(user_id, max_chars=10000),
+        "react_steps": [],
+        "traces": [],
+    }
+    preload_material_context(context, memory)
+    return pack_main_agent_context(context)
 
 
 @router.post("/chat", response_model=ChatResponse)

@@ -7,7 +7,7 @@ import uuid
 from pathlib import Path
 from typing import Any
 
-from app.agents.resources._helpers import retrieval_basis
+from app.agents.resources._helpers import append_session_dialogue_basis, retrieval_basis
 from app.agents.resources.video_storyboard import (
     STORYBOARD_SYSTEM,
     build_storyboard_prompt,
@@ -77,7 +77,7 @@ class VideoAgent(BaseAgent):
 
     async def run(self, context: dict[str, Any]) -> dict[str, Any]:
         user_id = context["user_id"]
-        basis = retrieval_basis(context, max_chars=2000)
+        basis = append_session_dialogue_basis(retrieval_basis(context, max_chars=2000), context)
         prompt = build_storyboard_prompt(context["message"], basis)
 
         system = STORYBOARD_SYSTEM

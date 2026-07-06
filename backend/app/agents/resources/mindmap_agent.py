@@ -5,7 +5,7 @@ import uuid
 from pathlib import Path
 from typing import Any
 
-from app.agents.resources._helpers import retrieval_basis
+from app.agents.resources._helpers import append_session_dialogue_basis, retrieval_basis
 from app.agents.resources.mindmap_design import (
     MINDMAP_SYSTEM,
     build_mindmap_prompt,
@@ -37,7 +37,7 @@ class MindmapAgent(BaseAgent):
 
     async def run(self, context: dict[str, Any]) -> dict[str, Any]:
         user_id = context["user_id"]
-        basis = retrieval_basis(context, max_chars=2500)
+        basis = append_session_dialogue_basis(retrieval_basis(context, max_chars=2500), context)
         profile = context.get("profile") or self.memory.get_profile(user_id)
         conversation = self.memory.get_recent_conversation(user_id, limit=8)
         prompt = build_mindmap_prompt(

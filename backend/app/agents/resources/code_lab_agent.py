@@ -4,7 +4,7 @@ import re
 import uuid
 from typing import Any
 
-from app.agents.resources._helpers import retrieval_basis
+from app.agents.resources._helpers import append_session_dialogue_basis, retrieval_basis
 from app.agents.resources.code_lab_design import (
     GENERATE_SYSTEM,
     build_generate_prompt,
@@ -149,7 +149,7 @@ class CodeLabAgent(BaseAgent):
     async def _generate(self, context: dict[str, Any]) -> dict[str, Any]:
         user_id = context["user_id"]
         topic = str(context.get("code_lab_topic") or context.get("message") or "数据库编程")
-        basis = retrieval_basis(context, max_chars=2500)
+        basis = append_session_dialogue_basis(retrieval_basis(context, max_chars=2500), context)
         profile = context.get("profile") or self.memory.get_profile(user_id)
         conversation = self.memory.get_recent_conversation(user_id, limit=8)
         prompt = build_generate_prompt(
@@ -162,9 +162,17 @@ class CodeLabAgent(BaseAgent):
         raw = await self.llm.complete(prompt, system=GENERATE_SYSTEM)
         try:
             payload = parse_generated_code_labs(raw)
-        except ValueError:
+        except ValueError as exc:
+            retry_prompt = (
+                f"{prompt}\n\n"
+                f"上次输出无法解析：{exc}\n"
+                f"上次输出片段：{raw[:1200]}\n\n"
+                "请重新输出。要求：只输出一个合法 JSON 对象；首字符是 {，末字符是 }；"
+                "不要 markdown 围栏；不要解释文字；所有多行 question/setup_code/starter_code/solution_code "
+                "必须使用 \\n 转义换行；challenges 2~4 条且每条必须含 solution_code。"
+            )
             raw = await self.llm.complete(
-                prompt + "\n\n上次 JSON 无效，请严格输出合法 JSON，challenges 2~4 条且含 solution_code。",
+                retry_prompt,
                 system=GENERATE_SYSTEM,
             )
             payload = parse_generated_code_labs(raw)
