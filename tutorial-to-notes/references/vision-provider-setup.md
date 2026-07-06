@@ -52,14 +52,14 @@ if result and result[0]:
 
 | 项目 | 值 |
 |------|-----|
-| API Key | `ark-43298c6d-41b5-4a04-bce0-b2c6ae918f2c-fed82` |
+| API Key |  |
 | Base URL | `https://ark.cn-beijing.volces.com/api/v3` |
 | 模型 | `doubao-seed-2-0-mini-260428` |
 
 ### 设置
 
 ```bash
-export DOUBAO_API_KEY="ark-43298c6d-41b5-4a04-bce0-b2c6ae918f2c-fed82"
+export DOUBAO_API_KEY=
 ```
 
 ### 使用
