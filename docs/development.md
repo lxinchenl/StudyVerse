@@ -1,12 +1,14 @@
 # 系统开发说明书
 
+> 更完整的架构、API、记忆、Agent 与部署说明见 **[technical_reference.md](./technical_reference.md)**。
+
 ## 1. 开发环境
 
 | 类别 | 选型 |
 |------|------|
-| 语言 | Python 3.11+ / TypeScript |
+| 语言 | Python 3.10+ / TypeScript |
 | 后端 | FastAPI + Uvicorn（ASGI） |
-| 前端 | Next.js 14 + React |
+| 前端 | Next.js 15 + React 19 |
 | 向量库 | Chroma（嵌入模型 `BAAI/bge-small-zh-v1.5`） |
 | 图数据库 | Neo4j（可选，缺失时回退 JSON 图谱） |
 | 数据校验 | Pydantic v2 |

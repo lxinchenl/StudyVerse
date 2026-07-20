@@ -84,6 +84,9 @@ function stepsSummary(steps: ReactStep[], loading: boolean, statusMessage?: stri
   const action = formatAction(last);
   const running = steps.some((s) => s.status === "running");
   if (running) {
+    if (statusMessage?.trim()) {
+      return `${steps.length} 步 · ${statusMessage.trim()}`;
+    }
     return `${steps.length} 步 · 进行中 · ${action}`;
   }
   return `${steps.length} 步 · ${action}`;
@@ -152,6 +155,12 @@ export function ReActSteps({
               <div className="planning-rich-content">
                 {step.thought ? <p><strong>Thought</strong>：{step.thought}</p> : null}
                 {step.observation ? <p><strong>Observation</strong>：{step.observation}</p> : null}
+                {isActive && statusMessage?.trim() && statusMessage.trim() !== step.observation ? (
+                  <p className="planning-muted-line planning-status-live">{statusMessage.trim()}</p>
+                ) : null}
+                {isActive && !step.observation && !statusMessage ? (
+                  <p className="planning-muted-line">执行中…</p>
+                ) : null}
                 {expertTrace ? <p className="planning-muted-line">{expertTrace.summary}</p> : null}
               </div>
             )

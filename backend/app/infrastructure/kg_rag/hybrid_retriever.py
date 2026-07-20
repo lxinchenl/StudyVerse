@@ -1,8 +1,47 @@
+import re
 from typing import Any
 
 from app.infrastructure.kg_rag.chroma_store import ChromaStore
 from app.infrastructure.kg_rag.neo4j_store import Neo4jStore
 from app.interfaces.contracts import ChunkRepository, Retriever
+
+# Split on whitespace / CJK & Latin punctuation so unspaced Chinese stays one segment.
+_TERM_SPLIT = re.compile(r"[\s，。；、？！：:,.!?;/\-_|\\（）()【】\[\]“”\"']+")
+_HAS_CJK = re.compile(r"[\u4e00-\u9fff]")
+
+
+def extract_containment_terms(query: str) -> dict[str, float]:
+    """
+    Build weighted terms for substring containment matching.
+
+    Unspaced Chinese queries (e.g. 数据库第一范式定义) are expanded into
+    character n-grams so a doc that only contains「第一范式」still hits.
+    Longer matches weigh more; full query gets an extra bonus.
+    """
+    q = " ".join(str(query or "").lower().split()).strip()
+    weights: dict[str, float] = {}
+
+    def add(term: str, weight: float) -> None:
+        term = term.strip()
+        if len(term) < 2:
+            return
+        weights[term] = max(weights.get(term, 0.0), weight)
+
+    if not q:
+        return weights
+
+    add(q, 10.0 + float(len(q)))
+    for part in _TERM_SPLIT.split(q):
+        if not part:
+            continue
+        add(part, float(len(part)))
+        # Expand CJK segments into overlapping n-grams (2..4).
+        if _HAS_CJK.search(part) and len(part) > 2:
+            max_n = min(4, len(part))
+            for n in range(2, max_n + 1):
+                for i in range(0, len(part) - n + 1):
+                    add(part[i : i + n], float(n * n))
+    return weights
 
 
 class HybridRetrievalPipeline(Retriever):
@@ -124,15 +163,32 @@ class HybridRetrievalPipeline(Retriever):
         course_id: str | None,
         document_id: str | None,
     ) -> list[dict[str, Any]]:
-        terms = {t for t in query.lower().replace("，", " ").split() if len(t) > 1}
+        q = " ".join(str(query or "").lower().split()).strip()
+        terms = extract_containment_terms(q)
         rows = self.chunk_repo.list_chunks()
         rows = self._apply_scope_rows(rows, course_id, document_id)
 
         def score(row: dict[str, Any]) -> float:
-            text = f"{row.get('title', '')} {row.get('text', '')}".lower()
-            return float(sum(1 for t in terms if t in text))
+            title = str(row.get("title") or "").lower()
+            text = f"{title} {row.get('text') or ''}".lower()
+            total = 0.0
+            # Containment: query term appears inside doc text/title.
+            for term, weight in terms.items():
+                if term in text:
+                    total += weight
+            # Reverse containment: short title/path phrase appears inside the query.
+            if title and len(title) >= 2 and title in q:
+                total += 8.0 + float(len(title))
+            path = str(row.get("source_path") or "").lower()
+            for piece in _TERM_SPLIT.split(path):
+                if len(piece) >= 2 and piece in q:
+                    total += 3.0
+            return total
 
-        ranked = sorted(rows, key=score, reverse=True)[:top_k]
+        scored = [(score(r), r) for r in rows]
+        ranked = sorted((pair for pair in scored if pair[0] > 0), key=lambda p: p[0], reverse=True)[
+            :top_k
+        ]
         return [
             {
                 "chunk_id": r.get("chunk_id"),
@@ -141,10 +197,9 @@ class HybridRetrievalPipeline(Retriever):
                 "title": r.get("title"),
                 "text": r.get("text"),
                 "source_path": r.get("source_path"),
-                "score": score(r),
+                "score": s,
             }
-            for r in ranked
-            if score(r) > 0
+            for s, r in ranked
         ]
 
     @staticmethod
@@ -154,11 +209,7 @@ class HybridRetrievalPipeline(Retriever):
         *,
         query: str,
     ) -> list[dict[str, Any]]:
-        terms = {
-            t
-            for t in query.lower().replace("，", " ").replace("？", " ").replace("?", " ").split()
-            if len(t) > 1
-        }
+        terms = extract_containment_terms(query)
         combined: dict[str, dict[str, Any]] = {}
 
         def boost(hit: dict[str, Any]) -> dict[str, Any]:
@@ -166,9 +217,9 @@ class HybridRetrievalPipeline(Retriever):
             score = float(item.get("score", 0))
             title = str(item.get("title", "")).lower()
             path = str(item.get("source_path", "")).lower()
-            for term in terms:
+            for term, weight in terms.items():
                 if term in title or term in path:
-                    score += 5.0
+                    score += max(5.0, weight)
             item["score"] = score
             return item
 

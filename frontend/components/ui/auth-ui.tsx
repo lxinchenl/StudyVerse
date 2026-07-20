@@ -22,7 +22,7 @@ export interface TypewriterProps {
 export function Typewriter({
   text,
   speed = 100,
-  cursor = "|",
+  cursor = "",
   loop = false,
   deleteSpeed = 50,
   delay = 1500,
@@ -233,7 +233,7 @@ function SignInForm({
   return (
     <form onSubmit={handleSignIn} autoComplete="on" className="flex flex-col gap-8">
       <div className="flex flex-col items-center gap-2 text-center">
-        <h1 className="text-2xl font-bold text-foreground">登录 EduAgent</h1>
+        <h1 className="text-2xl font-bold text-foreground">登录 StudyVerse</h1>
         <p className="text-balance text-sm text-muted-foreground">使用注册邮箱登录你的学习空间</p>
       </div>
       {error ? <p className="auth-form-error">{error}</p> : null}
@@ -347,23 +347,23 @@ export interface AuthUIProps {
 
 const defaultSignInContent: Required<AuthContentProps> = {
   image: {
-    src: "https://images.unsplash.com/photo-1524178232363-1fb2b075b655?auto=format&fit=crop&w=1600&q=80",
-    alt: "图书馆学习场景"
+    src: "/login.png",
+    alt: "登录页配图"
   },
   quote: {
-    text: "欢迎回来，继续你的数据库学习之旅。",
-    author: "EduAgent"
+    text: "欢迎回来，继续你的学习之旅",
+    author: "StudyVerse"
   }
 };
 
 const defaultSignUpContent: Required<AuthContentProps> = {
   image: {
-    src: "https://images.unsplash.com/photo-1523050854058-8df90110c9f1?auto=format&fit=crop&w=1600&q=80",
-    alt: "校园学习场景"
+    src: "/login.png",
+    alt: "登录页配图"
   },
   quote: {
     text: "开启个性化多 Agent 学习，新章节等你探索。",
-    author: "EduAgent"
+    author: "StudyVerse"
   }
 };
 
@@ -406,7 +406,7 @@ export function AuthUI({
         />
       </div>
       <div
-        className="auth-ui-hero hidden md:block relative bg-cover bg-center transition-all duration-500 ease-in-out"
+        className="auth-ui-hero hidden md:block relative transition-all duration-500 ease-in-out"
         style={{ backgroundImage: `url(${currentContent.image.src})` }}
         key={currentContent.image.src}
       >

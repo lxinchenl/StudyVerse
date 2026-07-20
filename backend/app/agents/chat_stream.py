@@ -6,6 +6,8 @@ from datetime import datetime, timezone
 from typing import Any
 
 from app.services.material_context import material_basis_summary
+from app.services.reader_context import reader_context_summary
+from app.agents.prompt_blocks import compose_llm_prompt_preview
 
 
 def serialize_react_step(step: dict[str, Any]) -> dict[str, Any]:
@@ -68,6 +70,10 @@ def pack_main_agent_context(context: dict[str, Any]) -> dict[str, Any]:
             )
         )
 
+    reader_note = reader_context_summary(context)
+    if reader_note:
+        lines.append(f"\n{reader_note}")
+
     if context.get("course_proposal") and not context.get("course_confirmed"):
         title = str(context["course_proposal"].get("course_title") or "定制课")
         lines.append(
@@ -91,6 +97,12 @@ def pack_main_agent_context(context: dict[str, Any]) -> dict[str, Any]:
             )
 
     lines.append("\n请输出本轮 JSON。")
+    user_prompt_text = "\n".join(lines)
+    system_text = str(context.get("main_agent_system_text") or "").strip()
+    prompt_text = compose_llm_prompt_preview(
+        system_text=system_text,
+        user_prompt_text=user_prompt_text,
+    )
 
     retrieval = context.get("retrieval") if isinstance(context.get("retrieval"), dict) else {}
     chunks = []
@@ -113,7 +125,10 @@ def pack_main_agent_context(context: dict[str, Any]) -> dict[str, Any]:
         "step": step_idx,
         "updated_at": datetime.now(timezone.utc).astimezone().strftime("%H:%M:%S"),
         "message": message,
-        "prompt_text": "\n".join(lines),
+        "system_text": system_text,
+        "user_prompt_text": user_prompt_text,
+        "prompt_text": prompt_text or user_prompt_text,
+        "me": context.get("me") or {},
         "explicit_memory": explicit_memory,
         "session_dialogue": session_dialogue,
         "material_summary": material_basis_summary(context, None),

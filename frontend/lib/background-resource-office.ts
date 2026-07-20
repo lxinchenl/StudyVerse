@@ -152,7 +152,9 @@ export async function startBackgroundResourceGeneration(userId: string, clarific
     running: true,
     error: "",
     showGenerate: true,
-    inquiry: clarification ? prev.inquiry : null,
+    // 用户已提交补充：立刻清掉问询面板，避免旧问题在整轮生成期间一直挂着
+    inquiry: null,
+    clarification: clarification ? "" : prev.clarification,
     messages: clarification
       ? [
           ...prev.messages,

@@ -387,17 +387,26 @@ class WorkbenchOut(BaseModel):
 
 class LLMConfigOut(BaseModel):
     provider: str
-    base_url: str
     model: str
-    api_key_set: bool
-    api_key_hint: str
-    ready: bool
+    base_url: str = ""
+    doubao_api_key_set: bool = False
+    doubao_api_key_hint: str = ""
+    deepseek_api_key_set: bool = False
+    deepseek_api_key_hint: str = ""
+    unlocked_families: list[str] = []
+    ready: bool = False
+    # Backward-compatible aliases
+    api_key_set: bool = False
+    api_key_hint: str = ""
 
 
 class LLMConfigUpdate(BaseModel):
     provider: str | None = None
-    base_url: str | None = None
     model: str | None = None
+    doubao_api_key: str | None = None
+    deepseek_api_key: str | None = None
+    # Legacy fields ignored by new service, kept for compatibility
+    base_url: str | None = None
     api_key: str | None = None
 
 

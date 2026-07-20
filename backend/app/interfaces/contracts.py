@@ -69,6 +69,16 @@ class MemoryService(ABC):
         ...
 
     @abstractmethod
+    def patch_proposal_card_status(
+        self,
+        user_id: str,
+        *,
+        status: str,
+        course_title: str | None = None,
+    ) -> bool:
+        ...
+
+    @abstractmethod
     def get_today_dialogue_context(
         self,
         user_id: str,

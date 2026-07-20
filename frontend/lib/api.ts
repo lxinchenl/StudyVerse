@@ -465,6 +465,8 @@ type ApiMainAgentContext = {
   updated_at?: string;
   message?: string;
   prompt_text?: string;
+  system_text?: string;
+  user_prompt_text?: string;
   material_summary?: string;
   explicit_memory?: Array<{ type?: string; content?: string; created_at?: string }>;
   session_dialogue?: Array<{ role?: string; content?: string; time?: string }>;
@@ -503,6 +505,8 @@ export function mapMainAgentContext(raw?: ApiMainAgentContext | null): MainAgent
     updatedAt: raw.updated_at ?? "",
     message: raw.message ?? "",
     promptText: raw.prompt_text ?? "",
+    systemText: raw.system_text ?? "",
+    userPromptText: raw.user_prompt_text ?? raw.prompt_text ?? "",
     materialSummary: raw.material_summary ?? "",
     explicitMemory: raw.explicit_memory ?? [],
     sessionDialogue: raw.session_dialogue ?? [],
@@ -1485,59 +1489,78 @@ export function learningResourceHref(type: string, resourceId: string): string {
 
 export interface LLMConfig {
   provider: string;
-  baseUrl: string;
   model: string;
+  baseUrl: string;
+  doubaoApiKeySet: boolean;
+  doubaoApiKeyHint: string;
+  deepseekApiKeySet: boolean;
+  deepseekApiKeyHint: string;
+  unlockedFamilies: string[];
+  ready: boolean;
   apiKeySet: boolean;
   apiKeyHint: string;
-  ready: boolean;
 }
 
 type ApiLLMConfig = {
   provider: string;
-  base_url: string;
   model: string;
-  api_key_set: boolean;
-  api_key_hint: string;
+  base_url?: string;
+  doubao_api_key_set?: boolean;
+  doubao_api_key_hint?: string;
+  deepseek_api_key_set?: boolean;
+  deepseek_api_key_hint?: string;
+  unlocked_families?: string[];
   ready: boolean;
+  api_key_set?: boolean;
+  api_key_hint?: string;
 };
 
 function mapLLMConfig(data: ApiLLMConfig): LLMConfig {
+  const unlocked = data.unlocked_families ?? [];
   return {
     provider: data.provider,
-    baseUrl: data.base_url,
     model: data.model,
-    apiKeySet: data.api_key_set,
-    apiKeyHint: data.api_key_hint,
-    ready: data.ready
+    baseUrl: data.base_url ?? "",
+    doubaoApiKeySet: Boolean(data.doubao_api_key_set),
+    doubaoApiKeyHint: data.doubao_api_key_hint ?? "",
+    deepseekApiKeySet: Boolean(data.deepseek_api_key_set),
+    deepseekApiKeyHint: data.deepseek_api_key_hint ?? "",
+    unlockedFamilies: unlocked,
+    ready: data.ready,
+    apiKeySet: Boolean(data.api_key_set ?? (data.doubao_api_key_set || data.deepseek_api_key_set)),
+    apiKeyHint: data.api_key_hint ?? data.doubao_api_key_hint ?? data.deepseek_api_key_hint ?? ""
   };
 }
 
-export async function fetchLLMConfig(): Promise<LLMConfig> {
-  const data = await request<ApiLLMConfig>("/system/llm-config");
+export async function fetchLLMConfig(userId: string): Promise<LLMConfig> {
+  const data = await request<ApiLLMConfig>("/system/llm-config", userId);
   return mapLLMConfig(data);
 }
 
-export async function saveLLMConfig(payload: {
-  provider?: string;
-  base_url?: string;
-  model?: string;
-  api_key?: string;
-}): Promise<LLMConfig> {
-  const data = await request<ApiLLMConfig>("/system/llm-config", undefined, {
+export async function saveLLMConfig(
+  userId: string,
+  payload: {
+    provider?: string;
+    model?: string;
+    doubao_api_key?: string;
+    deepseek_api_key?: string;
+  }
+): Promise<LLMConfig> {
+  const data = await request<ApiLLMConfig>("/system/llm-config", userId, {
     method: "PUT",
     body: JSON.stringify(payload)
   });
   return mapLLMConfig(data);
 }
 
-export async function testLLMConfig(): Promise<{
+export async function testLLMConfig(userId: string): Promise<{
   ok: boolean;
   provider: string;
   model: string;
   preview: string;
   error?: string;
 }> {
-  return request("/system/llm-config/test", undefined, { method: "POST" });
+  return request("/system/llm-config/test", userId, { method: "POST" });
 }
 
 export const RESOURCE_TYPE_LABELS: Record<string, string> = {

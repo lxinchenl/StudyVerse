@@ -19,6 +19,7 @@ from app.agents.safety_agent import SafetyReviewAgent
 from app.interfaces.contracts import BaseAgent, MemoryService
 from app.services.chat_store import build_assistant_record, build_user_record
 from app.services.material_context import preload_material_context
+from app.services.reader_context import preload_reader_context
 
 EventSink = Callable[[dict[str, Any]], Awaitable[None]]
 
@@ -59,6 +60,7 @@ class AgentOrchestrator:
         message: str,
         course_id: str,
         document_id: str | None = None,
+        selected_text: str | None = None,
         course_workflow_action: str | None = None,
         course_proposal: dict[str, Any] | None = None,
     ) -> dict[str, Any]:
@@ -67,6 +69,7 @@ class AgentOrchestrator:
             message=message,
             course_id=course_id,
             document_id=document_id,
+            selected_text=selected_text,
             course_workflow_action=course_workflow_action,
             course_proposal=course_proposal,
         )
@@ -78,6 +81,7 @@ class AgentOrchestrator:
         message: str,
         course_id: str,
         document_id: str | None = None,
+        selected_text: str | None = None,
         course_workflow_action: str | None = None,
         course_proposal: dict[str, Any] | None = None,
     ) -> AsyncIterator[dict[str, Any]]:
@@ -93,6 +97,7 @@ class AgentOrchestrator:
                     message=message,
                     course_id=course_id,
                     document_id=document_id,
+                    selected_text=selected_text,
                     event_sink=event_sink,
                     course_workflow_action=course_workflow_action,
                     course_proposal=course_proposal,
@@ -120,6 +125,7 @@ class AgentOrchestrator:
         message: str,
         course_id: str,
         document_id: str | None = None,
+        selected_text: str | None = None,
         event_sink: EventSink | None = None,
         course_workflow_action: str | None = None,
         course_proposal: dict[str, Any] | None = None,
@@ -129,6 +135,7 @@ class AgentOrchestrator:
             "message": message,
             "course_id": course_id,
             "document_id": document_id,
+            "selected_text": (selected_text or "").strip() or None,
             "expert_outputs": [],
             "traces": [],
             "me": self.memory.get_me(user_id),
@@ -144,6 +151,28 @@ class AgentOrchestrator:
             await event_sink({"type": "status", "message": "主 Agent 开始 ReAct 推理…"})
 
         preload_material_context(context, self.memory)
+        if document_id or context.get("selected_text"):
+            preload_reader_context(context)
+
+        wf_action = str(course_workflow_action or "").strip().lower()
+        course_title = ""
+        if isinstance(course_proposal, dict):
+            course_title = str(
+                course_proposal.get("course_title") or course_proposal.get("courseTitle") or ""
+            ).strip()
+        if wf_action == "confirm":
+            self.memory.patch_proposal_card_status(
+                user_id,
+                status="confirmed",
+                course_title=course_title or None,
+            )
+        elif wf_action == "cancel":
+            self.memory.patch_proposal_card_status(
+                user_id,
+                status="cancelled",
+                course_title=course_title or None,
+            )
+
         answer = await self.main_agent.react_loop(context, self._experts)
 
         if event_sink is not None:
@@ -151,11 +180,14 @@ class AgentOrchestrator:
 
         now = datetime.now(timezone.utc).astimezone().strftime("%H:%M")
         user_rec = build_user_record(msg_id=f"msg-{uuid4().hex[:8]}", content=message, timestamp=now)
+        save_context = context
+        if wf_action == "confirm" and context.get("course_confirmed"):
+            save_context = {**context, "course_proposal_card": None}
         assistant_rec = build_assistant_record(
             msg_id=f"msg-{uuid4().hex[:8]}",
             content=answer,
             timestamp=now,
-            context=context,
+            context=save_context,
         )
         self.memory.append_chat_turn(user_id, user_rec, assistant_rec)
         profile = self.memory.get_profile(user_id)

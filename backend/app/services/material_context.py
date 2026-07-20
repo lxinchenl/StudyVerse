@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import asyncio
+from collections.abc import Awaitable, Callable
 from typing import Any
 
 from app.interfaces.contracts import LLMProvider, MemoryService
@@ -168,7 +170,12 @@ def apply_document_read(context: dict[str, Any], result: dict[str, Any]) -> None
     _rebuild_retrieval(retrieval)
 
 
-async def maybe_summarize_materials(context: dict[str, Any], llm: LLMProvider) -> bool:
+async def maybe_summarize_materials(
+    context: dict[str, Any],
+    llm: LLMProvider,
+    *,
+    on_progress: Callable[[str], Awaitable[None]] | None = None,
+) -> bool:
     retrieval = context.get("retrieval")
     if not isinstance(retrieval, dict):
         return False
@@ -191,24 +198,34 @@ async def maybe_summarize_materials(context: dict[str, Any], llm: LLMProvider) -
         doc_budget = max(0, int(SUMMARY_TARGET_CHARS * doc_chars / (doc_chars + search_chars)))
         search_budget = SUMMARY_TARGET_CHARS - doc_budget
 
+    n_chunks = len(document_chunks) + len(search_chunks)
+    if on_progress:
+        await on_progress(
+            f"资料约 {total_chars} 字（{n_chunks} 条），正在并行摘要到约 {SUMMARY_TARGET_CHARS} 字…"
+        )
+
     summary_agent = MaterialSummaryAgent(llm)
+    jobs = []
     if document_chunks and doc_budget > 0:
-        retrieval["document_chunks"] = await summary_agent.compress_chunks(
-            document_chunks,
-            max_total_chars=doc_budget,
-        )
+        jobs.append(("document_chunks", document_chunks, doc_budget))
     if search_chunks and search_budget > 0:
-        retrieval["search_chunks"] = await summary_agent.compress_chunks(
-            search_chunks,
-            max_total_chars=search_budget,
-        )
+        jobs.append(("search_chunks", search_chunks, search_budget))
+
+    compressed = await asyncio.gather(
+        *[
+            summary_agent.compress_chunks(chunks, max_total_chars=budget)
+            for _, chunks, budget in jobs
+        ]
+    )
+    for (key, _, _), rows in zip(jobs, compressed):
+        retrieval[key] = rows
 
     _rebuild_retrieval(retrieval)
     retrieval["summarized"] = {
         "trigger_chars": total_chars,
         "target_chars": SUMMARY_TARGET_CHARS,
         "agent": MaterialSummaryAgent.name,
-        "mode": "per_chunk",
+        "mode": "per_chunk_parallel",
         "chunk_count": len(retrieval.get("chunks") or []),
     }
     return True

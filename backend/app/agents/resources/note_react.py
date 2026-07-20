@@ -240,18 +240,28 @@ async def run_note_react(
                     obs = "无待理解图片"
                 else:
                     analyzed = 0
+                    errors: list[str] = []
                     for page, img in pending[:8]:
                         try:
                             result = await invoke_tool(
                                 "doubao-vision-analyze",
+                                agent_context=context,
                                 image_path=img["path"],
                                 page_text=str(page.get("text") or ""),
                             )
                             if result.get("ok") and result.get("analysis"):
                                 apply_vision_to_process(process["pages"], img["id"], result["analysis"])
                                 analyzed += 1
-                        except Exception:
-                            img["status"] = "跳过（视觉失败）"
+                            else:
+                                err = str(result.get("error") or "视觉返回空结果").strip()
+                                img["status"] = f"跳过（视觉失败：{err[:40]}）"
+                                if err and err not in errors:
+                                    errors.append(err)
+                        except Exception as exc:
+                            img["status"] = f"跳过（视觉失败：{type(exc).__name__}）"
+                            msg = f"{type(exc).__name__}: {exc}"
+                            if msg not in errors:
+                                errors.append(msg)
                     process["pending_images"] = sum(
                         1
                         for p in process.get("pages") or []
@@ -259,6 +269,13 @@ async def run_note_react(
                         if i.get("status") == "待理解"
                     )
                     obs = f"已分析 {analyzed}/{len(pending)} 张图"
+                    if errors:
+                        obs = f"{obs}；失败原因：{errors[0][:120]}"
+                    if analyzed == 0 and errors:
+                        obs = (
+                            f"{obs}。视觉模型为独立豆包多模态"
+                            f"（默认 doubao-seed-2-0-mini，非主对话模型），请确认已填写豆包 API Key"
+                        )
 
         elif action_name == "analyze_structure":
             if not process:

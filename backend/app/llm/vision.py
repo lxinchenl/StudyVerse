@@ -57,15 +57,22 @@ class DoubaoVisionClient:
         self.client = AsyncOpenAI(base_url=base_url.rstrip("/"), api_key=api_key, timeout=120.0)
 
     @classmethod
-    def from_settings(cls) -> "DoubaoVisionClient | None":
-        from app.core.dependencies import get_llm_config_service
+    def from_settings(cls, user_id: str | None = None) -> "DoubaoVisionClient | None":
+        api_key = ""
+        if user_id:
+            try:
+                from app.core.dependencies import get_llm_config_service
 
-        cfg = get_llm_config_service().get_config()
-        api_key = str(cfg.get("api_key") or os.getenv("DOUBAO_API_KEY") or os.getenv("ARK_API_KEY") or "").strip()
+                cfg = get_llm_config_service().get_config(user_id)
+                api_key = str(cfg.get("doubao_api_key") or "").strip()
+            except Exception:
+                api_key = ""
+        if not api_key:
+            api_key = str(os.getenv("DOUBAO_API_KEY") or os.getenv("ARK_API_KEY") or "").strip()
         if not api_key:
             return None
         return cls(
-            base_url=str(cfg.get("base_url") or "https://ark.cn-beijing.volces.com/api/v3"),
+            base_url="https://ark.cn-beijing.volces.com/api/v3",
             api_key=api_key,
             model=os.getenv("DOUBAO_VISION_MODEL"),
         )

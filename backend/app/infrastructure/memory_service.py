@@ -88,14 +88,46 @@ class FileMemoryService(MemoryService):
 
     def get_recent_conversation(self, user_id: str, limit: int = 10) -> list[dict[str, Any]]:
         conv_dir = self._user_dir(user_id) / "conversation_memory"
-        files = sorted(conv_dir.glob("*.json"), reverse=True)
+        files = sorted(conv_dir.glob("*.json"))
         messages: list[dict[str, Any]] = []
         for file in files:
             data = json.loads(file.read_text(encoding="utf-8"))
-            messages.extend(data.get("messages", []))
-            if len(messages) >= limit:
-                break
+            for row in data.get("messages", []):
+                if isinstance(row, dict):
+                    messages.append(row)
         return messages[-limit:]
+
+    def patch_proposal_card_status(
+        self,
+        user_id: str,
+        *,
+        status: str,
+        course_title: str | None = None,
+    ) -> bool:
+        """Update the latest pending course proposal card stored in conversation history."""
+        conv_dir = self._user_dir(user_id) / "conversation_memory"
+        files = sorted(conv_dir.glob("*.json"), reverse=True)
+        target_title = str(course_title or "").strip()
+        for file in files:
+            data = json.loads(file.read_text(encoding="utf-8"))
+            changed = False
+            for row in reversed(data.get("messages", [])):
+                if not isinstance(row, dict) or row.get("role") != "assistant":
+                    continue
+                card = row.get("course_proposal_card")
+                if not isinstance(card, dict) or card.get("kind") != "course_proposal":
+                    continue
+                if str(card.get("status") or "") != "pending":
+                    continue
+                if target_title and str(card.get("course_title") or "").strip() != target_title:
+                    continue
+                card["status"] = status
+                changed = True
+                break
+            if changed:
+                file.write_text(json.dumps(data, ensure_ascii=False, indent=2), encoding="utf-8")
+                return True
+        return False
 
     def get_today_dialogue_context(
         self,

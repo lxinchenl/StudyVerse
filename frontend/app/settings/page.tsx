@@ -1,9 +1,10 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { CheckCircle2, Loader2, Settings2, Type, Zap } from "lucide-react";
+import { CheckCircle2, KeyRound, Loader2, Type, Zap } from "lucide-react";
 
 import { AppShell } from "@/components/layout/AppShell";
+import { useAuth } from "@/lib/auth";
 import { fetchLLMConfig, saveLLMConfig, testLLMConfig, type LLMConfig } from "@/lib/api";
 import {
   CHAT_FONT_SIZE_OPTIONS,
@@ -12,15 +13,11 @@ import {
   type ChatFontSize
 } from "@/lib/uiPreferences";
 
-const DEFAULT_BASE_URL = "https://ark.cn-beijing.volces.com/api/v3";
-const DEFAULT_MODEL = "doubao-seed-2-0-lite-260428";
-
 export default function SettingsPage() {
+  const { user } = useAuth();
   const [config, setConfig] = useState<LLMConfig | null>(null);
-  const [provider, setProvider] = useState("openai_compatible");
-  const [baseUrl, setBaseUrl] = useState(DEFAULT_BASE_URL);
-  const [model, setModel] = useState(DEFAULT_MODEL);
-  const [apiKey, setApiKey] = useState("");
+  const [doubaoKey, setDoubaoKey] = useState("");
+  const [deepseekKey, setDeepseekKey] = useState("");
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [testing, setTesting] = useState(false);
@@ -34,38 +31,36 @@ export default function SettingsPage() {
   }, []);
 
   useEffect(() => {
-    fetchLLMConfig()
-      .then((data) => {
-        setConfig(data);
-        setProvider(data.provider);
-        setBaseUrl(data.baseUrl);
-        setModel(data.model);
-      })
+    if (!user) return;
+    setLoading(true);
+    fetchLLMConfig(user.id)
+      .then(setConfig)
       .catch((e) => setError(e instanceof Error ? e.message : "加载失败"))
       .finally(() => setLoading(false));
-  }, []);
+  }, [user]);
 
   async function handleSave(e: React.FormEvent) {
     e.preventDefault();
+    if (!user) return;
     setSaving(true);
     setError("");
     setMessage("");
     try {
       const payload: {
-        provider: string;
-        base_url: string;
-        model: string;
-        api_key?: string;
-      } = {
-        provider,
-        base_url: baseUrl.trim(),
-        model: model.trim()
-      };
-      if (apiKey.trim()) payload.api_key = apiKey.trim();
-      const saved = await saveLLMConfig(payload);
+        doubao_api_key?: string;
+        deepseek_api_key?: string;
+      } = {};
+      if (doubaoKey.trim()) payload.doubao_api_key = doubaoKey.trim();
+      if (deepseekKey.trim()) payload.deepseek_api_key = deepseekKey.trim();
+      if (!payload.doubao_api_key && !payload.deepseek_api_key) {
+        setMessage("未填写新的 Key（已保留现有配置）");
+        return;
+      }
+      const saved = await saveLLMConfig(user.id, payload);
       setConfig(saved);
-      setApiKey("");
-      setMessage("配置已保存，后续对话将使用新模型。");
+      setDoubaoKey("");
+      setDeepseekKey("");
+      setMessage("API Key 已保存。聊天页将解锁对应厂商的模型。");
     } catch (e) {
       setError(e instanceof Error ? e.message : "保存失败");
     } finally {
@@ -74,11 +69,12 @@ export default function SettingsPage() {
   }
 
   async function handleTest() {
+    if (!user) return;
     setTesting(true);
     setError("");
     setTestResult("");
     try {
-      const result = await testLLMConfig();
+      const result = await testLLMConfig(user.id);
       if (result.ok) {
         setTestResult(result.preview);
       } else {
@@ -94,77 +90,95 @@ export default function SettingsPage() {
   return (
     <AppShell title="设置" subtitle="模型接入与聊天页显示偏好">
       {loading ? <p className="muted">加载配置中...</p> : null}
-      {error ? <p className="muted" style={{ color: "var(--danger)" }}>{error}</p> : null}
-      {message ? <p className="muted" style={{ color: "var(--success)" }}>{message}</p> : null}
+      {error ? (
+        <p className="muted" style={{ color: "var(--danger)" }}>
+          {error}
+        </p>
+      ) : null}
+      {message ? (
+        <p className="muted" style={{ color: "var(--success)" }}>
+          {message}
+        </p>
+      ) : null}
 
       <section className="card" style={{ maxWidth: 720 }}>
-        <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 16 }}>
-          <Settings2 size={20} />
+        <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 12 }}>
+          <KeyRound size={20} />
           <h3 style={{ margin: 0 }}>LLM 接入</h3>
         </div>
+        <p className="muted" style={{ marginTop: 0, marginBottom: 16 }}>
+          模型与接口地址已内置。这里只需填写你自己的 API Key；填入后，聊天页即可切换对应厂商的模型。
+          Key 与当前账号绑定，仅你本人可用。
+        </p>
 
         <form onSubmit={handleSave} style={{ display: "flex", flexDirection: "column", gap: 14 }}>
           <label>
-            <span className="muted">Provider</span>
-            <select
-              value={provider}
-              onChange={(e) => setProvider(e.target.value)}
-              style={{ width: "100%", marginTop: 6, padding: "10px 12px" }}
-            >
-              <option value="openai_compatible">豆包 / OpenAI 兼容</option>
-              <option value="mock">Mock（离线演示）</option>
-            </select>
-          </label>
-
-          <label>
-            <span className="muted">Base URL</span>
-            <input
-              type="url"
-              value={baseUrl}
-              onChange={(e) => setBaseUrl(e.target.value)}
-              placeholder={DEFAULT_BASE_URL}
-              style={{ width: "100%", marginTop: 6, padding: "10px 12px" }}
-            />
-          </label>
-
-          <label>
-            <span className="muted">Model</span>
-            <input
-              type="text"
-              value={model}
-              onChange={(e) => setModel(e.target.value)}
-              placeholder={DEFAULT_MODEL}
-              style={{ width: "100%", marginTop: 6, padding: "10px 12px" }}
-            />
-          </label>
-
-          <label>
-            <span className="muted">API Key</span>
+            <span className="muted">豆包 API Key</span>
             <input
               type="password"
-              value={apiKey}
-              onChange={(e) => setApiKey(e.target.value)}
-              placeholder={config?.apiKeySet ? `已配置 ${config.apiKeyHint}，留空则不修改` : "输入 ARK_API_KEY"}
+              value={doubaoKey}
+              onChange={(e) => setDoubaoKey(e.target.value)}
+              placeholder={
+                config?.doubaoApiKeySet
+                  ? `已配置 ${config.doubaoApiKeyHint}，留空则不修改`
+                  : "填写火山引擎 ARK API Key"
+              }
               style={{ width: "100%", marginTop: 6, padding: "10px 12px" }}
+              autoComplete="off"
             />
+            <span className="muted" style={{ display: "block", marginTop: 4, fontSize: 12 }}>
+              解锁：豆包 Seed 2.1 Pro / Turbo / Evolving
+            </span>
+          </label>
+
+          <label>
+            <span className="muted">DeepSeek API Key</span>
+            <input
+              type="password"
+              value={deepseekKey}
+              onChange={(e) => setDeepseekKey(e.target.value)}
+              placeholder={
+                config?.deepseekApiKeySet
+                  ? `已配置 ${config.deepseekApiKeyHint}，留空则不修改`
+                  : "填写 DeepSeek API Key"
+              }
+              style={{ width: "100%", marginTop: 6, padding: "10px 12px" }}
+              autoComplete="off"
+            />
+            <span className="muted" style={{ display: "block", marginTop: 4, fontSize: 12 }}>
+              解锁：DeepSeek V4 Pro / Flash
+            </span>
           </label>
 
           <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
-            <button type="submit" className="btn-primary" disabled={saving}>
+            <button type="submit" className="btn-primary" disabled={saving || !user}>
               {saving ? <Loader2 size={16} /> : <CheckCircle2 size={16} />}
-              {saving ? "保存中..." : "保存配置"}
+              {saving ? "保存中..." : "保存 Key"}
             </button>
-            <button type="button" className="btn-secondary" onClick={handleTest} disabled={testing || provider === "mock"}>
+            <button
+              type="button"
+              className="btn-secondary"
+              onClick={handleTest}
+              disabled={testing || !config?.ready || !user}
+            >
               {testing ? <Loader2 size={16} /> : <Zap size={16} />}
-              {testing ? "测试中..." : "测试连接"}
+              {testing ? "测试中..." : "测试当前模型"}
             </button>
           </div>
         </form>
 
         {config ? (
-          <p className="muted" style={{ marginTop: 16 }}>
-            当前状态：{config.ready ? "已就绪" : "未配置 API Key"} · Provider: {config.provider}
-          </p>
+          <div className="muted" style={{ marginTop: 16, fontSize: 13, lineHeight: 1.6 }}>
+            <div>
+              豆包：{config.doubaoApiKeySet ? `已配置（${config.doubaoApiKeyHint}）` : "未配置"}
+            </div>
+            <div>
+              DeepSeek：{config.deepseekApiKeySet ? `已配置（${config.deepseekApiKeyHint}）` : "未配置"}
+            </div>
+            <div>
+              当前选用：{config.provider === "mock" ? "Mock 离线" : config.model}
+            </div>
+          </div>
         ) : null}
 
         {testResult ? (
@@ -198,12 +212,6 @@ export default function SettingsPage() {
             </button>
           ))}
         </div>
-      </section>
-
-      <section className="card" style={{ maxWidth: 720, marginTop: 20 }}>
-        <h3>豆包示例</h3>
-        <p className="muted">默认 Base URL：<code>{DEFAULT_BASE_URL}</code></p>
-        <p className="muted">也可在项目根目录 <code>.env</code> 中设置 <code>ARK_API_KEY=...</code>，首次启动会自动读取。</p>
       </section>
     </AppShell>
   );

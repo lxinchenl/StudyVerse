@@ -86,6 +86,7 @@ questions 1~3 条，具体、可回答。
 - 只输出一个 JSON 对象，不要 markdown 或其它文字
 - message 用简体中文，简洁专业，像同事讨论
 - 生成资源前尽量先拿到足够资料；资料不足可 call_retrieval 或 call_inquiry
+- 若提示中已有「用户补充」或明确写了禁止 call_inquiry，则不得再 call_inquiry，应直接按补充生成
 - 完成 generate 后不要再发言（你将退出）
 """
 
@@ -279,9 +280,17 @@ class StudioHubSession:
                     continue
 
                 if action_name == "call_inquiry":
-                    if context.get("user_clarification_provided"):
+                    # 用户本轮已补充过（含 clarification_note）则硬拦截，避免导图等 Agent 重复弹窗
+                    if context.get("user_clarification_provided") or context.get("clarification_note"):
+                        note = str(context.get("clarification_note") or "用户已补充").strip()
                         state.observations.append(
-                            "用户已在本轮提供补充信息，请直接利用，无需再次 call_inquiry。"
+                            f"{note}。请直接利用，无需再次 call_inquiry。"
+                        )
+                        await hub(
+                            emit,
+                            agent_id,
+                            "用户已补充过需求，我按现有说明继续，不再追问。",
+                            self.ts_fn(),
                         )
                         await set_agent(agents, agent_id, "idle", emit)
                         progressed = True
@@ -418,6 +427,13 @@ class StudioHubSession:
             material_basis_summary(context, self.memory),
             f"这是你第 {state.turns} 次发言（上限 {MAX_TURNS_PER_AGENT}）。",
         ]
+        if context.get("user_clarification_provided") or context.get("clarification_note"):
+            note = str(context.get("clarification_note") or "用户已提供补充信息").strip()
+            lines.append(
+                f"\n【重要】{note}\n"
+                "用户已回答过询问员，禁止再 call_inquiry；请直接按该补充与主题生成，"
+                "若与画像长期目标（如关系代数/范式）冲突，以本轮用户补充为准。"
+            )
         explicit_memory = context.get("explicit_memory") or []
         if explicit_memory:
             lines.append("\n显式长期记忆 memory：")

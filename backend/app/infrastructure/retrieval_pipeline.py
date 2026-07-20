@@ -1,10 +1,11 @@
 from typing import Any
 
+from app.infrastructure.kg_rag.hybrid_retriever import extract_containment_terms
 from app.interfaces.contracts import ChunkRepository, Retriever
 
 
 class RetrievalAgentPipeline(Retriever):
-    """Fixed retrieval pipeline: normalize -> filter -> vector-like keyword -> merge -> pack."""
+    """Fixed retrieval pipeline: normalize -> filter -> containment keyword -> merge -> pack."""
 
     def __init__(self, chunk_repo: ChunkRepository):
         self.chunk_repo = chunk_repo
@@ -17,7 +18,8 @@ class RetrievalAgentPipeline(Retriever):
         course_id: str | None = None,
         document_id: str | None = None,
     ) -> dict[str, Any]:
-        query_terms = {t for t in query.lower().replace("，", " ").split() if len(t) > 1}
+        q = " ".join(str(query or "").lower().split()).strip()
+        terms = extract_containment_terms(q)
         chunks = self.chunk_repo.list_chunks()
         if course_id:
             chunks = [c for c in chunks if c.get("course_id") == course_id]
@@ -25,10 +27,17 @@ class RetrievalAgentPipeline(Retriever):
             chunks = [c for c in chunks if c.get("chunk_id") == document_id or c.get("doc_id") == document_id]
 
         def score(chunk: dict[str, Any]) -> float:
-            text = f"{chunk.get('title', '')} {chunk.get('text', '')}".lower()
-            return float(sum(1 for t in query_terms if t in text))
+            title = str(chunk.get("title") or "").lower()
+            text = f"{title} {chunk.get('text') or ''}".lower()
+            total = float(sum(weight for term, weight in terms.items() if term in text))
+            if title and len(title) >= 2 and title in q:
+                total += 8.0 + float(len(title))
+            return total
 
-        ranked = sorted(chunks, key=score, reverse=True)[:top_k]
+        scored = [(score(c), c) for c in chunks]
+        ranked = sorted((pair for pair in scored if pair[0] > 0), key=lambda p: p[0], reverse=True)[
+            :top_k
+        ]
         packed = [
             {
                 "chunk_id": c.get("chunk_id"),
@@ -36,9 +45,9 @@ class RetrievalAgentPipeline(Retriever):
                 "title": c.get("title"),
                 "text": c.get("text"),
                 "source": c.get("source_path"),
-                "score": score(c),
+                "score": s,
             }
-            for c in ranked
+            for s, c in ranked
         ]
         return {
             "query": query,

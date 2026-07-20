@@ -64,10 +64,11 @@ function loadSnapshot(userId: string): ChatSnapshot {
     const parsed = JSON.parse(raw) as Partial<ChatSnapshot>;
     return {
       ...emptySnapshot(userId),
-      ...parsed,
-      userId,
-      loading: Boolean(parsed.loading),
-      bootstrapping: false
+      profile: parsed.profile ?? null,
+      currentModelLabel: parsed.currentModelLabel ?? "",
+      error: parsed.error ?? "",
+      mainAgentContext: parsed.mainAgentContext ?? null,
+      userId
     };
   } catch {
     return emptySnapshot(userId);
@@ -76,7 +77,48 @@ function loadSnapshot(userId: string): ChatSnapshot {
 
 function persistSnapshot(snapshot: ChatSnapshot) {
   if (typeof window === "undefined") return;
-  window.sessionStorage.setItem(storageKey(snapshot.userId), JSON.stringify(snapshot));
+  window.sessionStorage.setItem(
+    storageKey(snapshot.userId),
+    JSON.stringify({
+      profile: snapshot.profile,
+      currentModelLabel: snapshot.currentModelLabel,
+      error: snapshot.error,
+      mainAgentContext: snapshot.mainAgentContext
+    })
+  );
+}
+
+function normalizeChatHistory(messages: ChatMessage[]): ChatMessage[] {
+  const normalized = messages.map((message) => ({ ...message }));
+
+  for (let i = 0; i < normalized.length; i += 1) {
+    const userText = normalized[i].content.trim();
+    if (normalized[i].role !== "user") continue;
+    if (userText !== "确认生成定制系统课" && userText !== "取消定制系统课") continue;
+
+    const nextStatus = userText === "确认生成定制系统课" ? "confirmed" : "cancelled";
+    for (let j = i - 1; j >= 0; j -= 1) {
+      const card = normalized[j].courseProposalCard;
+      if (!card || card.kind !== "course_proposal" || card.status !== "pending") continue;
+      normalized[j] = {
+        ...normalized[j],
+        courseProposalCard: { ...card, status: nextStatus }
+      };
+      break;
+    }
+  }
+
+  return normalized.map((message) => {
+    if (
+      message.role === "assistant" &&
+      message.content.includes("已为您生成定制系统课") &&
+      message.courseProposalCard
+    ) {
+      const { courseProposalCard: _card, ...rest } = message;
+      return rest;
+    }
+    return message;
+  });
 }
 
 function getSnapshotFor(userId: string): ChatSnapshot {
@@ -117,7 +159,7 @@ export function useBackgroundChat(userId?: string | null) {
 
 export async function initializeBackgroundChat(userId: string) {
   const current = getSnapshotFor(userId);
-  if (current.messages.length || current.bootstrapping || bootstrappingUsers.has(userId)) return;
+  if (current.bootstrapping || bootstrappingUsers.has(userId)) return;
 
   bootstrappingUsers.add(userId);
   updateSnapshot(userId, (prev) => ({ ...prev, bootstrapping: true, error: "" }));
@@ -125,11 +167,11 @@ export async function initializeBackgroundChat(userId: string) {
     const [history, profile, llm] = await Promise.all([
       fetchChatHistory(userId),
       fetchProfile(userId),
-      fetchLLMConfig()
+      fetchLLMConfig(userId)
     ]);
     updateSnapshot(userId, (prev) => ({
       ...prev,
-      messages: prev.loading ? prev.messages : history,
+      messages: prev.loading ? prev.messages : normalizeChatHistory(history),
       profile,
       currentModelLabel: resolveModelLabel(llm.model, llm.provider),
       bootstrapping: false
@@ -317,9 +359,8 @@ function applyStreamEvent(userId: string, pendingId: string, event: ChatStreamEv
   if (event.type === "done") {
     const assistant = event.messages.find((m) => m.role === "assistant");
     if (!assistant) return;
-    updateSnapshot(userId, (prev) => ({
-      ...prev,
-      messages: [
+    updateSnapshot(userId, (prev) => {
+      const nextMessages = normalizeChatHistory([
         ...prev.messages.filter((m) => m.id !== pendingId),
         {
           id: assistant.id,
@@ -409,17 +450,21 @@ function applyStreamEvent(userId: string, pendingId: string, event: ChatStreamEv
           })),
           courseProposalCard: mapCourseProposalCard(assistant.course_proposal_card)
         }
-      ],
-      profile: {
-        major: event.profile.major,
-        course: event.profile.course,
-        goal: event.profile.goal,
-        recentTopics: event.profile.recent_topics,
-        weakPoints: event.profile.weak_points,
-        frequentErrors: event.profile.frequent_errors,
-        preferences: event.profile.preferences
-      }
-    }));
+      ]);
+      return {
+        ...prev,
+        messages: nextMessages,
+        profile: {
+          major: event.profile.major,
+          course: event.profile.course,
+          goal: event.profile.goal,
+          recentTopics: event.profile.recent_topics,
+          weakPoints: event.profile.weak_points,
+          frequentErrors: event.profile.frequent_errors,
+          preferences: event.profile.preferences
+        }
+      };
+    });
   }
 }
 

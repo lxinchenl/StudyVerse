@@ -93,6 +93,8 @@ export interface MainAgentContext {
   updatedAt: string;
   message: string;
   promptText: string;
+  systemText: string;
+  userPromptText: string;
   materialSummary: string;
   explicitMemory: Array<{ type?: string; content?: string; created_at?: string }>;
   sessionDialogue: Array<{ role?: string; content?: string; time?: string }>;

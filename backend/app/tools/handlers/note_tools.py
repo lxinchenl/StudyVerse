@@ -35,12 +35,13 @@ async def doubao_vision_analyze(
     *,
     image_path: str,
     page_text: str = "",
+    user_id: str = "",
 ) -> dict[str, Any]:
-    client = DoubaoVisionClient.from_settings()
+    client = DoubaoVisionClient.from_settings(user_id or None)
     if client is None:
         return {
             "ok": False,
-            "error": "未配置豆包视觉 API（请在设置页填写 ARK API Key）",
+            "error": "未配置豆包 API Key（请在设置页填写）",
             "analysis": "",
         }
     analysis = await client.analyze_image(Path(image_path), page_text=page_text)

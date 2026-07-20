@@ -3,13 +3,13 @@
 from __future__ import annotations
 
 import json
-import re
 from typing import Any
 
 from app.core.config import get_settings
 
 _MAX_LIST_ITEMS = 10
 _DEFAULT_COURSE_TITLE = "数据库系统原理"
+_GATHER_CONVERSATION_LIMIT = 30
 
 
 def _memory():
@@ -76,91 +76,98 @@ def _infer_course_title(*, profile: dict[str, Any], course_id: str) -> str:
     return _DEFAULT_COURSE_TITLE
 
 
-def _topics_from_conversation(messages: list[dict[str, Any]]) -> list[str]:
-    topics: list[str] = []
-    seen: set[str] = set()
+def _normalize_conversation_records(messages: list[dict[str, Any]]) -> list[dict[str, str]]:
+    records: list[dict[str, str]] = []
     for msg in messages:
+        if not isinstance(msg, dict):
+            continue
+        role = str(msg.get("role") or "").strip()
+        if role not in {"user", "assistant"}:
+            continue
         content = _clean_str(msg.get("content"))
         if not content:
             continue
-        for title in re.findall(r"《([^》]{2,80})》", content):
-            if title not in seen:
-                seen.add(title)
-                topics.append(title)
-        if msg.get("role") == "user" and len(content) <= 100:
-            snippet = content.replace("\n", " ")[:100]
-            if snippet not in seen:
-                seen.add(snippet)
-                topics.append(snippet)
-    return topics[:12]
+        records.append(
+            {
+                "role": role,
+                "content": content,
+                "time": str(msg.get("time") or msg.get("timestamp") or ""),
+            }
+        )
+    return records
 
 
-def _weak_topics_from_attempts(user_id: str) -> list[str]:
+def _normalize_resource_records(resources: list[dict[str, Any]]) -> list[dict[str, str]]:
+    records: list[dict[str, str]] = []
+    for row in resources:
+        if not isinstance(row, dict):
+            continue
+        records.append(
+            {
+                "resource_id": _clean_str(row.get("resource_id") or row.get("id")),
+                "title": _clean_str(row.get("title")),
+                "topic": _clean_str(row.get("topic")),
+                "type": _clean_str(row.get("type")),
+            }
+        )
+    return records
+
+
+def _raw_practice_low_scores(user_id: str) -> list[dict[str, Any]]:
     from app.core.dependencies import get_code_lab_repo, get_question_repo
 
     memory = _memory()
     attempts = memory.get_practice_attempts(user_id)
     q_index = {q["id"]: q for q in get_question_repo().list_questions()}
     lab_index = {c["id"]: c for c in get_code_lab_repo().list_challenges()}
-    topics: list[str] = []
-    seen: set[str] = set()
-    for _resource_id, bucket in attempts.items():
+    rows: list[dict[str, Any]] = []
+    for resource_id, bucket in attempts.items():
         if not isinstance(bucket, dict):
             continue
-        for qid, row in bucket.items():
-            if not isinstance(row, dict) or float(row.get("score", 0)) >= 60:
+        for qid, attempt in bucket.items():
+            if not isinstance(attempt, dict):
                 continue
-            item = q_index.get(qid) or lab_index.get(qid)
-            if not item:
+            score = float(attempt.get("score", 0))
+            if score >= 60:
                 continue
-            topic = _clean_str(item.get("topic"))
-            if topic and topic not in seen:
-                seen.add(topic)
-                topics.append(topic)
-    return topics
+            item = q_index.get(qid) or lab_index.get(qid) or {}
+            rows.append(
+                {
+                    "resource_id": str(resource_id),
+                    "question_id": str(qid),
+                    "score": score,
+                    "topic": _clean_str(item.get("topic")),
+                    "title": _clean_str(item.get("title") or item.get("question")),
+                    "user_answer": _clean_str(attempt.get("user_answer"))[:240],
+                }
+            )
+    return rows
 
 
 def gather_profile_context(*, user_id: str, course_id: str = "") -> dict[str, Any]:
-    """Aggregate signals from user_profile, conversation, practice, resources for profile sync."""
+    """Load raw profile memory materials without parsing topics for the main agent."""
     memory = _memory()
     profile = memory.get_profile(user_id)
     user_meta = _load_user_meta(user_id)
-    conv = memory.get_recent_conversation(user_id, limit=30)
-    resources = _load_generated_resources(user_id)
-    resource_topics = _clean_list(
-        [str(r.get("topic") or "") for r in resources] + [str(r.get("title") or "") for r in resources]
+    conversation_records = _normalize_conversation_records(
+        memory.get_recent_conversation(user_id, limit=_GATHER_CONVERSATION_LIMIT)
     )
-    conv_topics = _topics_from_conversation(conv)
-    practice_weak = _weak_topics_from_attempts(user_id)
+    resource_records = _normalize_resource_records(_load_generated_resources(user_id))
+    practice_low_scores = _raw_practice_low_scores(user_id)
     frequent_errors = _clean_list(profile.get("frequent_errors") or [])
     inferred_course = _infer_course_title(profile=profile, course_id=course_id)
-
-    recent_topics = _clean_list([*conv_topics, *resource_topics])
-    weak_points = _clean_list(
-        [
-            *(profile.get("weak_points") or []),
-            *frequent_errors,
-            *practice_weak,
-        ]
-    )
-
-    suggested = {
-        "course": inferred_course,
-        "goal": _clean_str(profile.get("goal")) or "系统备考数据库课程核心考点与实操",
-        "recent_topics": recent_topics,
-        "weak_points": weak_points,
-        "list_mode": "replace",
-    }
 
     summary_parts = [
         f"专业={user_meta.get('major') or profile.get('major') or '未知'}",
         f"推断课程={inferred_course}",
-        f"近期主题 {len(recent_topics)} 条",
-        f"薄弱/常错 {len(weak_points)} 条",
+        f"对话 {len(conversation_records)} 条",
+        f"资源 {len(resource_records)} 条",
+        f"练习低分 {len(practice_low_scores)} 条",
     ]
     return {
         "ok": True,
         "summary": "；".join(summary_parts),
+        "note": "仅返回原始记忆材料，不做 recent_topics / weak_points 解析；请主 Agent 阅读后自行提炼并调用 user-profile-update。",
         "current_profile": {
             "course": profile.get("course", ""),
             "goal": profile.get("goal", ""),
@@ -168,19 +175,16 @@ def gather_profile_context(*, user_id: str, course_id: str = "") -> dict[str, An
             "weak_points": profile.get("weak_points", []),
             "frequent_errors": frequent_errors,
         },
-        "memory_signals": {
+        "user_meta": {
             "major": user_meta.get("major") or profile.get("major", ""),
-            "recent_user_messages": [
-                _clean_str(m.get("content"))[:160]
-                for m in conv
-                if m.get("role") == "user"
-            ][-8:],
-            "conversation_topics": conv_topics,
-            "generated_resource_topics": resource_topics,
-            "practice_weak_topics": practice_weak,
-            "frequent_errors": frequent_errors,
+            "name": user_meta.get("name", ""),
         },
-        "suggested_updates": suggested,
+        "inferred_course": inferred_course,
+        "raw_materials": {
+            "conversation_records": conversation_records,
+            "generated_resources": resource_records,
+            "practice_low_scores": practice_low_scores,
+        },
     }
 
 
@@ -191,22 +195,62 @@ def format_profile_memory_digest(
     gather: dict[str, Any] | None = None,
 ) -> str:
     data = gather or gather_profile_context(user_id=user_id, course_id=course_id)
-    signals = data.get("memory_signals") or {}
-    suggested = data.get("suggested_updates") or {}
     current = data.get("current_profile") or {}
+    raw = data.get("raw_materials") or {}
     lines = [
-        "【记忆整合 — 更新画像时必读，勿向用户索要已存在于记忆中的信息】",
+        "【记忆材料 — user-profile-gather 原始返回，未做主题解析】",
+        str(data.get("note") or "请主 Agent 阅读下列材料后，自行提炼画像字段并调用 user-profile-update。"),
         f"- 当前画像：course={current.get('course') or '空'}；goal={current.get('goal') or '空'}",
         f"- 近期主题(已存)：{', '.join(current.get('recent_topics') or []) or '无'}",
         f"- 薄弱点(已存)：{', '.join(current.get('weak_points') or []) or '无'}",
-        f"- 练习常错(frequent_errors)：{', '.join(current.get('frequent_errors') or []) or '无'}",
-        f"- 近期用户消息：{' | '.join(signals.get('recent_user_messages') or []) or '无'}",
-        f"- 对话/交付主题：{', '.join(signals.get('conversation_topics') or []) or '无'}",
-        f"- 已生成资源主题：{', '.join(signals.get('generated_resource_topics') or []) or '无'}",
-        f"- 练习低分知识点：{', '.join(signals.get('practice_weak_topics') or []) or '无'}",
-        "【建议写入 user-profile-update 的 input（可微调，禁止空口索要用户重填）】",
-        json.dumps(suggested, ensure_ascii=False),
+        f"- 练习常错(已存)：{', '.join(current.get('frequent_errors') or []) or '无'}",
+        "",
+        "【近期对话记录（原文，按时间顺序）】",
     ]
+
+    conversation_records = raw.get("conversation_records") or []
+    if conversation_records:
+        for row in conversation_records:
+            role = "用户" if row.get("role") == "user" else "助手"
+            time = f"[{row.get('time')}] " if row.get("time") else ""
+            lines.append(f"{time}{role}: {row.get('content', '')}")
+    else:
+        lines.append("（无）")
+
+    lines.append("")
+    lines.append("【已生成资源（原文）】")
+    resource_records = raw.get("generated_resources") or []
+    if resource_records:
+        for row in resource_records:
+            lines.append(
+                f"- id={row.get('resource_id') or '未知'}；type={row.get('type') or '未知'}；"
+                f"title={row.get('title') or '无'}；topic={row.get('topic') or '无'}"
+            )
+    else:
+        lines.append("（无）")
+
+    lines.append("")
+    lines.append("【练习低分记录（原文）】")
+    practice_low_scores = raw.get("practice_low_scores") or []
+    if practice_low_scores:
+        for row in practice_low_scores:
+            lines.append(
+                f"- score={row.get('score')}；topic={row.get('topic') or '无'}；"
+                f"title={row.get('title') or '无'}；answer={row.get('user_answer') or '无'}"
+            )
+    else:
+        lines.append("（无）")
+
+    lines.extend(
+        [
+            "",
+            "【主 Agent 写入 user-profile-update 时请自行提炼，禁止照抄用户整句原话】",
+            "- recent_topics：4-30 字的知识点/章节/专题短语，如「第2章 关系运算」「关系代数」",
+            "- weak_points：用户明确不懂、易错、低分的知识点",
+            "- 不要写入：助手称呼、memory/画像抱怨、确认按钮文案、元对话",
+            "- 默认 list_mode=merge；仅在你确认要覆盖旧列表时用 replace",
+        ]
+    )
     return "\n".join(lines)
 
 

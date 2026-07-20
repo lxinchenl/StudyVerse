@@ -42,7 +42,7 @@ export default function ReadPage() {
       <Link href={`/courses/${courseId}`} className="btn-secondary" style={{ marginBottom: 16, display: "inline-flex" }}>
         <ArrowLeft size={16} /> 返回课程资料
       </Link>
-      <DocumentReader document={document} userId={user.id} />
+      <DocumentReader document={document} userId={user.id} courseId={courseId} />
     </AppShell>
   );
 }

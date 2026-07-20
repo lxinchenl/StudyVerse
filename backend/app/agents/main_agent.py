@@ -3,6 +3,7 @@ import re
 from typing import Any
 
 from app.agents.chat_stream import pack_progress_event
+from app.agents.prompt_blocks import format_me_block
 from app.agents.course_proposal_card import (
     build_proposal_card,
     normalize_client_proposal,
@@ -11,6 +12,7 @@ from app.agents.course_proposal_card import (
 from app.agents.registry import EXPERT_AGENTS, MAX_REACT_STEPS
 from app.interfaces.contracts import BaseAgent, LLMProvider, MemoryService
 from app.infrastructure.profile_tools import format_profile_memory_digest
+from app.services.reader_context import reader_context_summary
 from app.services.material_context import (
     apply_document_read,
     clear_material_context,
@@ -66,9 +68,10 @@ _REACT_SYSTEM = """你是数据库课程学习助手的主 Agent，采用 ReAct�
    - material-context-clear 不只用于检索前；凡是旧资料可能干扰当前回答，都应先清理
    用户画像维护规则（必须执行）：
    - 当用户明确提供了“课程/目标/近期主题/薄弱点”等信息，且与当前画像不一致或画像为空时，优先调用 user-profile-update 更新画像
-   - 可先调用 user-profile-gather 汇总记忆信号，再调用 user-profile-update 落盘
+   - 可先调用 user-profile-gather 读取原始记忆材料（当前画像、对话原文、资源原文、练习低分记录），再由你自行提炼后调用 user-profile-update
    - user-profile-update 的 input 可包含：
      {"course":"...","goal":"...","recent_topics":["..."],"weak_points":["..."],"list_mode":"merge|replace"}
+   - recent_topics 只写 4-30 字的知识点/章节/专题短语；禁止写入用户整句原话、称呼、memory/画像抱怨、确认按钮文案
    - 禁止仅在回答里口头复述，必须通过工具真正写入
    me 人设记忆维护规则（必须执行）：
    - 当用户明确声明长期偏好或者对你设置称呼时，调用 user-me-update 写入 me.json
@@ -232,10 +235,23 @@ class MainAgent(BaseAgent):
                 expert = experts[expert_name]
                 result = await expert.run(context)
                 observation = result.get("trace", {}).get("summary") or "专家执行完成"
+                step["observation"] = observation
+                await _emit_progress(context)
                 if expert_name == "retrieval-agent":
-                    summarized = await maybe_summarize_materials(context, self.llm)
+                    await _emit_status(context, observation)
+
+                    async def _summary_progress(msg: str) -> None:
+                        step["observation"] = f"{observation}；{msg}"
+                        await _emit_progress(context)
+                        await _emit_status(context, msg)
+
+                    summarized = await maybe_summarize_materials(
+                        context, self.llm, on_progress=_summary_progress
+                    )
                     if summarized:
-                        observation = f"{observation}；资料过长已自动摘要到 5000 字内"
+                        observation = f"{observation}；资料过长已并行摘要到 5000 字内"
+                        step["observation"] = observation
+                        await _emit_status(context, "资料摘要完成，继续推理…")
                 step["observation"] = observation
                 step["status"] = "done"
                 context["traces"].append(result["trace"])
@@ -258,10 +274,23 @@ class MainAgent(BaseAgent):
                     result = await self.invoke_tool(tool_id, context=context, **tool_input)
                     if tool_id == "course-document-read" and isinstance(result, dict):
                         apply_document_read(context, result)
-                        summarized = await maybe_summarize_materials(context, self.llm)
-                        step["observation"] = str(result.get("summary") or "文档阅读完成")[:240]
+                        base_obs = str(result.get("summary") or "文档阅读完成")[:240]
+                        step["observation"] = base_obs
+                        await _emit_progress(context)
+                        await _emit_status(context, base_obs)
+
+                        async def _doc_summary_progress(msg: str) -> None:
+                            step["observation"] = f"{base_obs}；{msg}"
+                            await _emit_progress(context)
+                            await _emit_status(context, msg)
+
+                        summarized = await maybe_summarize_materials(
+                            context, self.llm, on_progress=_doc_summary_progress
+                        )
+                        step["observation"] = base_obs
                         if summarized:
-                            step["observation"] = f"{step['observation']}；资料过长已自动摘要到 5000 字内"
+                            step["observation"] = f"{base_obs}；资料过长已并行摘要到 5000 字内"
+                            await _emit_status(context, "资料摘要完成，继续推理…")
                     elif tool_id == "course-catalog-list" and isinstance(result, dict):
                         step["observation"] = str(result.get("summary") or "目录加载完成")[:240]
                     elif tool_id == "material-context-clear":
@@ -383,7 +412,10 @@ class MainAgent(BaseAgent):
                     merged[key] = step[key]
         return merged
 
-    def _build_react_system(self, experts: dict[str, BaseAgent]) -> str:
+    def build_react_system_for_context(self, experts: dict[str, BaseAgent], context: dict[str, Any]) -> str:
+        return self._build_react_system(experts, context)
+
+    def _build_react_system(self, experts: dict[str, BaseAgent], context: dict[str, Any] | None = None) -> str:
         expert_list = " / ".join(experts.keys())
         tool_list = " / ".join(
             t["id"] for t in self.list_tools() if t.get("expose_to_main", True) is not False
@@ -391,13 +423,21 @@ class MainAgent(BaseAgent):
         skill_list = " / ".join(
             s.get("id", "") for s in self.list_skills() if s.get("id")
         ) or "（无）"
-        return (
+        system = (
             f"{_REACT_SYSTEM}\n\n"
             f"当前可用专家：{expert_list}\n"
             f"注册表专家说明：{'; '.join(f'{k}={v}' for k, v in EXPERT_AGENTS.items())}\n"
             f"可用工具 id：{tool_list}\n"
             f"可用 skill id：{skill_list}"
         )
+        if context:
+            me = context.get("me")
+            if me is None and context.get("user_id"):
+                me = self.memory.get_me(str(context["user_id"]))
+            me_block = format_me_block(me)
+            if me_block:
+                system = f"{system}\n\n{me_block}"
+        return system
 
     async def _react_step(
         self,
@@ -405,8 +445,10 @@ class MainAgent(BaseAgent):
         step_idx: int,
         experts: dict[str, BaseAgent],
     ) -> dict[str, Any] | None:
-        system = self._build_react_system(experts)
+        system = self._build_react_system(experts, context)
         prompt = self._build_react_prompt(context, step_idx)
+        context["main_agent_system_text"] = system
+        context["main_agent_user_prompt_text"] = prompt
         try:
             raw = await self.llm.complete(prompt, system=system)
             data = self._parse_json(raw)
@@ -450,6 +492,9 @@ class MainAgent(BaseAgent):
                     gather=context.get("profile_gather"),
                 )
             )
+        reader_note = reader_context_summary(context)
+        if reader_note:
+            lines.append(f"\n{reader_note}")
         if context.get("course_proposal") and not context.get("course_confirmed"):
             title = str(context["course_proposal"].get("course_title") or "定制课")
             lines.append(
@@ -650,10 +695,10 @@ class MainAgent(BaseAgent):
             )
 
         me = context.get("me") or self.memory.get_me(str(context.get("user_id") or ""))
-        me_note = str(me).strip()
+        me_block = format_me_block(me)
         system = _SUMMARIZE_SYSTEM
-        if me_note:
-            system = f"{system}\n\n【助手人设 me】\n{me_note}"
+        if me_block:
+            system = f"{system}\n\n{me_block}"
 
         dialogue_note = self._format_recent_dialogue(context, recent_turns=5)
         prompt_parts = [

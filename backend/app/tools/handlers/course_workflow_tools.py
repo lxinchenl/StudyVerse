@@ -7,11 +7,11 @@ from typing import Any
 
 async def course_workflow_propose(*, user_id: str, topic: str, course_id: str = "db-principles") -> dict[str, Any]:
     from app.agents.course_proposal_card import build_proposal_card
-    from app.core.dependencies import get_llm_provider, get_memory_service
+    from app.core.dependencies import get_llm_provider_for_user, get_memory_service
     from app.agents.course_workflow_agent import propose_course_plan
 
     plan = await propose_course_plan(
-        llm=get_llm_provider(),
+        llm=get_llm_provider_for_user(user_id),
         memory=get_memory_service(),
         user_id=user_id,
         topic=topic.strip(),

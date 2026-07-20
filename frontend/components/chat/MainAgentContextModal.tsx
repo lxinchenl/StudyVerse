@@ -125,9 +125,15 @@ export function MainAgentContextModal({
                 </Section>
               ) : null}
 
-              <Section title="完整 Prompt（主 Agent 当前可见）">
+              <Section title="System Prompt（人设 + ReAct 规则）">
+                <pre className="main-context-prompt main-context-prompt-system">
+                  {context.systemText || "（暂无；推理开始后会显示完整 system）"}
+                </pre>
+              </Section>
+
+              <Section title="User Prompt（画像 + 会话 + 资料摘要）">
                 <pre ref={bodyRef} className="main-context-prompt">
-                  {context.promptText}
+                  {context.userPromptText || context.promptText}
                 </pre>
               </Section>
             </>

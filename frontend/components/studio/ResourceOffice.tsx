@@ -183,6 +183,8 @@ export function ResourceOffice({
     setClarification("");
     setBackgroundResourceDraft(userId, { clarification: "" });
     inquiryPendingRef.current = false;
+    // 立刻收起问询，避免与 background 快照里残留的旧 inquiry 互相覆盖
+    setInquiry(null);
     setInquiryPhase("walk_home");
     runGeneration(answer);
   };

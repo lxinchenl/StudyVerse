@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import asyncio
 from typing import Any
 
 from app.interfaces.contracts import LLMProvider
@@ -57,11 +58,10 @@ class MaterialSummaryAgent:
             return []
 
         weights = [max(1, len(str(chunk.get("text") or ""))) for chunk in chunks]
-        weight_sum = sum(weights)
-        compressed: list[dict[str, Any]] = []
+        weight_sum = sum(weights) or 1
 
-        for chunk, weight in zip(chunks, weights):
+        async def _one(chunk: dict[str, Any], weight: int) -> dict[str, Any]:
             share = max(120, int(max_total_chars * weight / weight_sum))
-            compressed.append(await self.compress_one(chunk, share))
+            return await self.compress_one(chunk, share)
 
-        return compressed
+        return list(await asyncio.gather(*(_one(chunk, weight) for chunk, weight in zip(chunks, weights))))

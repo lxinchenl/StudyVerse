@@ -9,7 +9,6 @@ from fastapi import APIRouter, Depends, File, HTTPException, Query, UploadFile
 from fastapi.responses import FileResponse, StreamingResponse
 
 from app.agents.chat_stream import pack_main_agent_context
-from app.agents.orchestrator import AgentOrchestrator
 from app.core.config import get_settings
 from app.core.http_utils import inline_content_disposition
 from app.infrastructure.kg_rag import get_chroma_store, get_neo4j_store
@@ -19,17 +18,18 @@ from app.core.dependencies import (
     get_graph_repo,
     get_graph_service,
     get_llm_config_service,
-    get_llm_provider,
+    get_llm_provider_for_user,
     get_memory_service,
     get_code_lab_service,
-    get_orchestrator,
+    get_orchestrator_for_user,
     get_path_service,
     get_practice_service,
+    get_practice_service_for_user,
     get_question_repo,
     get_resource_service,
-    get_resource_studio,
+    get_resource_studio_for_user,
     get_auth_service,
-    reload_llm_dependencies,
+    invalidate_user_llm,
 )
 from app.domain.schemas import (
     ChatRequest,
@@ -118,29 +118,43 @@ async def system_status() -> dict:
             "vector": "chroma" if chroma.is_available() else "keyword_fallback",
             "graph_hops": 1,
         },
-        "llm": get_llm_config_service().public_view(),
+        "llm": {"ready": False, "note": "LLM 配置已改为按用户绑定，请调用 /system/llm-config"},
     }
 
 
 @router.get("/system/llm-config", response_model=LLMConfigOut)
-async def get_llm_config() -> LLMConfigOut:
-    return LLMConfigOut(**get_llm_config_service().public_view())
+async def get_llm_config(user_id: str = Depends(require_user_id)) -> LLMConfigOut:
+    return LLMConfigOut(**get_llm_config_service().public_view(user_id))
 
 
 @router.put("/system/llm-config", response_model=LLMConfigOut)
-async def update_llm_config(body: LLMConfigUpdate) -> LLMConfigOut:
+async def update_llm_config(
+    body: LLMConfigUpdate,
+    user_id: str = Depends(require_user_id),
+) -> LLMConfigOut:
     payload = body.model_dump(exclude_unset=True)
-    if "api_key" in payload and not str(payload.get("api_key", "")).strip():
-        payload.pop("api_key")
-    saved = get_llm_config_service().save_config(payload)
-    reload_llm_dependencies()
-    return LLMConfigOut(**get_llm_config_service().public_view())
+    # Ignore obsolete URL field; keys empty string mean "keep existing".
+    payload.pop("base_url", None)
+    if "api_key" in payload:
+        # Legacy single key → treat as Doubao key when provided.
+        legacy = str(payload.pop("api_key") or "").strip()
+        if legacy and "doubao_api_key" not in payload:
+            payload["doubao_api_key"] = legacy
+    for key in ("doubao_api_key", "deepseek_api_key"):
+        if key in payload and not str(payload.get(key) or "").strip():
+            payload.pop(key)
+    try:
+        get_llm_config_service().save_config(user_id, payload)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    invalidate_user_llm(user_id)
+    return LLMConfigOut(**get_llm_config_service().public_view(user_id))
 
 
 @router.post("/system/llm-config/test", response_model=LLMTestResponse)
-async def test_llm_config() -> LLMTestResponse:
-    cfg = get_llm_config_service().get_config()
-    provider = get_llm_provider()
+async def test_llm_config(user_id: str = Depends(require_user_id)) -> LLMTestResponse:
+    cfg = get_llm_config_service().get_config(user_id)
+    provider = get_llm_provider_for_user(user_id)
     try:
         preview = await provider.complete("请用一句话介绍你自己。", system="你是数据库课程学习助手。")
         return LLMTestResponse(
@@ -347,6 +361,11 @@ async def chat_main_context(
         "traces": [],
     }
     preload_material_context(context, memory)
+    orchestrator = get_orchestrator_for_user(user_id)
+    context["main_agent_system_text"] = orchestrator.main_agent.build_react_system_for_context(
+        orchestrator._experts,
+        context,
+    )
     return pack_main_agent_context(context)
 
 
@@ -354,13 +373,14 @@ async def chat_main_context(
 async def chat(
     request: ChatRequest,
     user_id: str = Depends(require_user_id),
-    orchestrator: AgentOrchestrator = Depends(get_orchestrator),
 ) -> ChatResponse:
+    orchestrator = get_orchestrator_for_user(user_id)
     result = await orchestrator.chat(
         user_id=user_id,
         message=request.message,
         course_id=_resolve_course_id(user_id, request.course_id),
         document_id=request.document_id,
+        selected_text=request.selected_text,
         course_workflow_action=request.course_workflow_action,
         course_proposal=request.course_proposal,
     )
@@ -396,9 +416,9 @@ async def chat(
 async def chat_stream(
     request: ChatRequest,
     user_id: str = Depends(require_user_id),
-    orchestrator: AgentOrchestrator = Depends(get_orchestrator),
 ) -> StreamingResponse:
     course_id = _resolve_course_id(user_id, request.course_id)
+    orchestrator = get_orchestrator_for_user(user_id)
 
     async def event_generator():
         try:
@@ -407,6 +427,7 @@ async def chat_stream(
                 message=request.message,
                 course_id=course_id,
                 document_id=request.document_id,
+                selected_text=request.selected_text,
                 course_workflow_action=request.course_workflow_action,
                 course_proposal=request.course_proposal,
             ):
@@ -508,7 +529,7 @@ async def practice_submit(
     resource_id: str = Query(...),
     user_id: str = Depends(require_user_id),
 ) -> ExerciseSubmitResponse:
-    return await get_practice_service().submit(user_id, resource_id, body.answers)
+    return await get_practice_service_for_user(user_id).submit(user_id, resource_id, body.answers)
 
 
 @router.get("/code-lab/set", response_model=CodeLabSetOut)
@@ -647,7 +668,7 @@ async def generate_resources_stream(
     user_id: str = Depends(require_user_id),
 ) -> StreamingResponse:
     course_id = _resolve_course_id(user_id, request.course_id)
-    studio = get_resource_studio()
+    studio = get_resource_studio_for_user(user_id)
 
     async def event_generator():
         try:

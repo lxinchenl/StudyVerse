@@ -14,9 +14,11 @@ import {
   DropdownMenuTrigger
 } from "@/components/ui/dropdown-menu";
 import { fetchLLMConfig, saveLLMConfig } from "@/lib/api";
+import { useAuth } from "@/lib/auth";
 import {
   buildModelOptions,
   findModelPreset,
+  isModelUnlocked,
   LLM_MODEL_PRESETS,
   resolveModelLabel,
   type LLMModelPreset
@@ -85,8 +87,11 @@ function DoubaoIcon({ className }: { className?: string }) {
 }
 
 function ModelIcon({ preset }: { preset: LLMModelPreset }) {
-  if (preset.provider === "mock") {
+  if (preset.family === "mock" || preset.provider === "mock") {
     return <Bot className="h-4 w-4 text-muted-foreground" />;
+  }
+  if (preset.family === "deepseek") {
+    return <Sparkles className="h-4 w-4 text-muted-foreground" />;
   }
   return <DoubaoIcon />;
 }
@@ -114,15 +119,20 @@ export function ChatPromptInput({
   onFileSelect,
   fileUploading = false
 }: ChatPromptInputProps) {
+  const { user } = useAuth();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { textareaRef, adjustHeight } = useAutoResizeTextarea({
     minHeight: 72,
     maxHeight: 300
   });
 
-  const [modelOptions, setModelOptions] = useState<LLMModelPreset[]>(LLM_MODEL_PRESETS);
-  const [selectedModelId, setSelectedModelId] = useState("doubao-seed-2-0-lite-260428");
-  const [selectedProvider, setSelectedProvider] = useState<string | undefined>();
+  const [modelOptions, setModelOptions] = useState<LLMModelPreset[]>(
+    LLM_MODEL_PRESETS.filter((p) => p.family === "mock")
+  );
+  const [lockedOptions, setLockedOptions] = useState<LLMModelPreset[]>([]);
+  const [selectedModelId, setSelectedModelId] = useState("mock");
+  const [selectedProvider, setSelectedProvider] = useState<string | undefined>("mock");
+  const [unlockedFamilies, setUnlockedFamilies] = useState<string[]>(["mock"]);
   const [modelLoading, setModelLoading] = useState(true);
   const [modelSwitching, setModelSwitching] = useState(false);
   const [modelError, setModelError] = useState<string | null>(null);
@@ -130,17 +140,24 @@ export function ChatPromptInput({
   const selectedLabel = resolveModelLabel(selectedModelId, selectedProvider);
   const selectedPreset =
     findModelPreset(selectedModelId, selectedProvider) ??
-    ({ id: selectedModelId, label: selectedLabel } satisfies LLMModelPreset);
+    ({ id: selectedModelId, label: selectedLabel, family: "mock" } satisfies LLMModelPreset);
   const inputDisabled = disabled || loading || modelSwitching || fileUploading;
 
   useEffect(() => {
+    if (!user) return;
     let cancelled = false;
-    fetchLLMConfig()
+    fetchLLMConfig(user.id)
       .then((cfg) => {
         if (cancelled) return;
         setSelectedModelId(cfg.model);
         setSelectedProvider(cfg.provider);
-        setModelOptions(buildModelOptions(cfg.model, cfg.provider));
+        setUnlockedFamilies(cfg.unlockedFamilies);
+        setModelOptions(buildModelOptions(cfg.model, cfg.provider, cfg.unlockedFamilies));
+        setLockedOptions(
+          LLM_MODEL_PRESETS.filter(
+            (p) => p.family !== "mock" && !isModelUnlocked(p, cfg.unlockedFamilies)
+          )
+        );
       })
       .catch(() => {
         if (!cancelled) setModelError("无法加载模型配置");
@@ -151,9 +168,18 @@ export function ChatPromptInput({
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [user]);
 
   async function handleModelSelect(preset: LLMModelPreset) {
+    if (!user) return;
+    if (!isModelUnlocked(preset, unlockedFamilies)) {
+      setModelError(
+        preset.family === "doubao"
+          ? "请先在设置页填写豆包 API Key"
+          : "请先在设置页填写 DeepSeek API Key"
+      );
+      return;
+    }
     if (preset.id === selectedModelId && preset.provider === selectedProvider) return;
     setModelSwitching(true);
     setModelError(null);
@@ -162,10 +188,16 @@ export function ChatPromptInput({
       if (preset.provider) payload.provider = preset.provider;
       else if (selectedProvider === "mock") payload.provider = "openai_compatible";
 
-      const saved = await saveLLMConfig(payload);
+      const saved = await saveLLMConfig(user.id, payload);
       setSelectedModelId(saved.model);
       setSelectedProvider(saved.provider);
-      setModelOptions(buildModelOptions(saved.model, saved.provider));
+      setUnlockedFamilies(saved.unlockedFamilies);
+      setModelOptions(buildModelOptions(saved.model, saved.provider, saved.unlockedFamilies));
+      setLockedOptions(
+        LLM_MODEL_PRESETS.filter(
+          (p) => p.family !== "mock" && !isModelUnlocked(p, saved.unlockedFamilies)
+        )
+      );
       onModelChange?.(saved.model, saved.provider);
     } catch (err) {
       setModelError(err instanceof Error ? err.message : "切换模型失败");
@@ -270,6 +302,30 @@ export function ChatPromptInput({
                         </DropdownMenuItem>
                       );
                     })}
+                    {lockedOptions.length > 0 ? (
+                      <>
+                        <div className="px-2 py-1.5 text-[11px] text-muted-foreground">
+                          未解锁（请先在设置填写 API Key）
+                        </div>
+                        {lockedOptions.map((preset) => (
+                          <DropdownMenuItem
+                            key={`locked-${preset.id}`}
+                            disabled
+                            className="flex items-center justify-between gap-3 py-2 opacity-50"
+                          >
+                            <div className="flex items-center gap-2 min-w-0">
+                              <ModelIcon preset={preset} />
+                              <div className="min-w-0">
+                                <div className="truncate">{preset.label}</div>
+                                <div className="text-[11px] text-muted-foreground truncate">
+                                  {preset.family === "doubao" ? "需要豆包 Key" : "需要 DeepSeek Key"}
+                                </div>
+                              </div>
+                            </div>
+                          </DropdownMenuItem>
+                        ))}
+                      </>
+                    ) : null}
                   </DropdownMenuContent>
                 </DropdownMenu>
                 <div className="h-4 w-px bg-border mx-0.5 shrink-0" />

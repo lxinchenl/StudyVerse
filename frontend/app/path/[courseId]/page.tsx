@@ -1,20 +1,15 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, type MouseEvent } from "react";
 import { useParams } from "next/navigation";
 import {
   ArrowLeft,
-  BookOpen,
-  Brain,
   CalendarDays,
   ChevronDown,
   ChevronRight,
   Clock,
-  Code2,
-  FileText,
   ListChecks,
-  PlayCircle,
   Sparkles
 } from "lucide-react";
 
@@ -30,16 +25,79 @@ const STATUS_LABELS: Record<string, string> = {
   done: "已完成"
 };
 
-const TYPE_ICONS: Record<string, typeof FileText> = {
-  note: FileText,
-  mindmap: Brain,
-  video_script: PlayCircle,
-  exercise: BookOpen,
-  code_lab: Code2
+const RESOURCE_VISUAL_META: Record<string, { key: string; subtitle: string }> = {
+  note: { key: "note", subtitle: "NOTES" },
+  mindmap: { key: "mindmap", subtitle: "MINDMAP" },
+  video_script: { key: "video", subtitle: "VIDEO" },
+  exercise: { key: "exercises", subtitle: "EXERCISES" },
+  code_lab: { key: "exercises", subtitle: "EXERCISES" }
 };
 
 function stripModuleTitle(title: string): string {
   return title.replace(/^第\s*\d+\s*讲[：:\s]*/u, "").trim() || title;
+}
+
+function clampTilt(delta: number, threshold = 20): number {
+  if (delta >= 0) return Math.min(delta, threshold);
+  return Math.max(delta, -threshold);
+}
+
+function handleCardMouseEnter(e: MouseEvent<HTMLButtonElement>) {
+  const card = e.currentTarget;
+  card.style.setProperty("--overlay-left", "-42px");
+  card.style.setProperty("--overlay-top", "-58px");
+  card.style.setProperty("--overlay-scale", "1.05");
+  card.style.setProperty("--overlay-overflow", "visible");
+  card.style.setProperty("--brand-logo-width", "88px");
+  card.style.setProperty("--card-stack", "1");
+  card.style.setProperty("--card-shell-scale", "1.1");
+}
+
+function handleCardMouseMove(e: MouseEvent<HTMLButtonElement>) {
+  const card = e.currentTarget;
+  const rect = card.getBoundingClientRect();
+  const centerX = rect.left + rect.width / 2;
+  const centerY = rect.top + rect.height / 2;
+  const dx = e.clientX - centerX;
+  const dy = e.clientY - centerY;
+  const rx = clampTilt(dx);
+  const ry = clampTilt(dy);
+  const brightness = 1 - (ry / 20) * 0.05;
+
+  card.style.setProperty("--card-rotate-y", `${rx}deg`);
+  card.style.setProperty("--card-rotate-x", `${-ry / 1.5}deg`);
+  card.style.setProperty("--card-brightness", `${brightness}`);
+  card.style.setProperty("--card-shadow-x", `${-rx}px`);
+  card.style.setProperty("--card-shadow-y", `${-ry}px`);
+  card.style.setProperty("--poster-move-x", `${dx / 8}px`);
+  card.style.setProperty("--poster-move-y", `${dy / 13}px`);
+  card.style.setProperty("--overlay-move-x", `${dx / 10}px`);
+  card.style.setProperty("--overlay-move-y", `${dy / 15}px`);
+  card.style.setProperty(
+    "--overlay-filter",
+    `drop-shadow(${-rx / 7}px ${-ry / 7}px 0 white)`
+  );
+}
+
+function handleCardMouseLeave(e: MouseEvent<HTMLButtonElement>) {
+  const card = e.currentTarget;
+  card.style.setProperty("--card-rotate-y", "0deg");
+  card.style.setProperty("--card-rotate-x", "0deg");
+  card.style.setProperty("--card-brightness", "1");
+  card.style.setProperty("--card-shadow-x", "0px");
+  card.style.setProperty("--card-shadow-y", "0px");
+  card.style.setProperty("--poster-move-x", "0px");
+  card.style.setProperty("--poster-move-y", "0px");
+  card.style.setProperty("--overlay-move-x", "0px");
+  card.style.setProperty("--overlay-move-y", "0px");
+  card.style.setProperty("--overlay-filter", "none");
+  card.style.setProperty("--overlay-left", "0px");
+  card.style.setProperty("--overlay-top", "0px");
+  card.style.setProperty("--overlay-scale", "1");
+  card.style.setProperty("--overlay-overflow", "hidden");
+  card.style.setProperty("--brand-logo-width", "72px");
+  card.style.setProperty("--card-stack", "0");
+  card.style.setProperty("--card-shell-scale", "1");
 }
 
 function LearningModuleSection({
@@ -106,8 +164,8 @@ function LearningModuleSection({
           </p>
           <div className="learning-module-track">
             {resources.map((res, resIndex) => {
-              const Icon = TYPE_ICONS[String(res.type)] ?? FileText;
               const typeLabel = RESOURCE_TYPE_LABELS[String(res.type)] ?? String(res.type);
+              const visual = RESOURCE_VISUAL_META[String(res.type)] ?? { key: "note", subtitle: "RESOURCE" };
               return (
                 <div key={`${module.id}-${res.resourceId}`} className="learning-module-track-item">
                   {resIndex > 0 ? (
@@ -119,13 +177,34 @@ function LearningModuleSection({
                     type="button"
                     className={`learning-resource-card learning-resource-card--${res.type}`}
                     onClick={() => onOpenResource(res)}
+                    onMouseEnter={handleCardMouseEnter}
+                    onMouseMove={handleCardMouseMove}
+                    onMouseLeave={handleCardMouseLeave}
                   >
                     <span className="learning-resource-card-order">{res.order}</span>
-                    <span className={`learning-resource-card-icon learning-resource-card-icon--${res.type}`}>
-                      <Icon size={18} />
-                    </span>
-                    <span className="learning-resource-card-type">{typeLabel}</span>
-                    <strong className="learning-resource-card-title">{res.title}</strong>
+                    <div className="learning-resource-card-poster" aria-hidden>
+                      <span className="learning-resource-card-dots" />
+                      <span className="learning-resource-card-overlay-area">
+                        <span className="learning-resource-card-overlay-img">
+                          <span className="learning-resource-card-brand-logo">
+                            <img src={`/card/${visual.key}.png`} alt="" />
+                          </span>
+                        </span>
+                      </span>
+                      <span className={`learning-resource-card-badge learning-resource-card-badge--${res.type}`}>
+                        {typeLabel}
+                      </span>
+                      <span
+                        className={`learning-resource-card-badge-shadow learning-resource-card-badge-shadow--${res.type}`}
+                      />
+                      <span className="learning-resource-card-mascot">
+                        <img src={`/card/character_${visual.key}.png`} alt="" />
+                      </span>
+                    </div>
+                    <div className="learning-resource-card-bottom">
+                      <strong className="learning-resource-card-title">{res.title}</strong>
+                      <span className="learning-resource-card-type">{visual.subtitle}</span>
+                    </div>
                     {res.learningOrderReason ? (
                       <p className="learning-resource-card-reason">{res.learningOrderReason}</p>
                     ) : null}
